@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v1.11</title>
+    <title>西语背词助手 v1.14</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,9 +19,9 @@
             --surface: #FFFFFF; 
             --surface-variant: #F1F5F9;
             
-            --primary: #10B981;        /* 护眼莫兰迪绿 */
+            --primary: #10B981;        
             --primary-text: #FFFFFF;
-            --accent: #059669;         /* 强调绿 */
+            --accent: #059669;         
             --accent-bg: #D1FAE5;      
             --accent-text: #065F46;    
             
@@ -47,13 +47,13 @@
         .main-scroll-area::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { display: none; }
 
         #bottom-nav { 
-            background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); 
+            background: #E2E8F0; 
             height: 65px; display: flex; align-items: center; justify-content: space-around; z-index: 1000; 
-            border-top: 1px solid var(--divider); flex-shrink: 0; padding-bottom: max(5px, env(safe-area-inset-bottom));
+            border-top: 1px solid #CBD5E1; flex-shrink: 0; padding-bottom: max(5px, env(safe-area-inset-bottom));
         }
         .nav-tab { 
             flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            height: 100%; color: var(--text-sub); font-weight: 700; font-size: 16px; 
+            height: 100%; color: #000000; font-weight: 700; font-size: 16px; 
             cursor: pointer; transition: color 0.2s; background: transparent; border: none; outline: none;
             -webkit-tap-highlight-color: transparent; letter-spacing: 0.5px;
         }
@@ -70,7 +70,6 @@
         .btn-study { background: var(--primary); color: var(--primary-text); }
         .btn-accent { background: var(--accent); color: white; }
         .btn-danger { background: var(--error); color: white; }
-        .btn-back { position: fixed; left: 15px; top: 15px; background: rgba(241, 245, 249, 0.9); color: var(--text-main); z-index: 2000; padding: 8px 16px; backdrop-filter: blur(10px); }
 
         .card { background: var(--surface); padding: 20px 16px; border-radius: var(--radius-xl); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid var(--surface); }
         
@@ -94,8 +93,9 @@
         .control-panel { display: flex; flex-direction: column; gap: 12px; background: var(--surface-variant); padding: 12px 14px; border-radius: var(--radius-lg); margin: 20px 0; }
         
         input[type="text"], select { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 14px; font-family: inherit; font-size: 14px; color: var(--text-main); outline: none; box-sizing: border-box; width: 100%; }
-        input[type="file"] { background: transparent; border: none; padding: 0; font-family: inherit; color: var(--text-main); width: 100%;}
-        input[type="file"]::file-selector-button { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-pill); padding: 8px 16px; color: var(--text-main); font-weight: 600; cursor: pointer; margin-right: 8px; }
+        input[type="file"] { display: none; }
+        .upload-label { display: block; background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 14px; color: var(--text-main); font-weight: 600; cursor: pointer; text-align: center; font-size: 13px; flex: 1; margin: 0;}
+        
         select { appearance: none; font-weight: 600; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
 
         .table-wrapper { border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
@@ -151,40 +151,39 @@
     <div class="container">
         
         <div id="tab-select" class="section">
-            <div class="card">
-                <div class="control-panel" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px;">
-                    <div style="flex: 1; overflow: hidden; display: flex; align-items: center; min-width: 0;">
-                        <input type="file" id="excelFile" accept=".xlsx, .xls" style="width: 100%; font-size: 13px; text-overflow: ellipsis; overflow: hidden;">
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; max-width: 50%;">
-                        <span style="font-size: 13px; font-weight: 600; color: var(--text-sub);">当前:</span>
-                        <select id="datasetSelect" onchange="App.changeDataset()" style="padding: 8px 24px 8px 10px; width: 100%; font-size: 13px; text-overflow: ellipsis;"></select>
-                    </div>
-                </div>
-
-                <div id="deckShelf" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px"></div>
+            
+            <div class="control-panel" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 12px; margin-top: 0;">
+                <label for="excelFile" class="upload-label">导入词库 (Excel)</label>
+                <input type="file" id="excelFile" accept=".xlsx, .xls">
                 
-                <div class="control-panel" style="display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 12px;">
-                    <input type="text" id="rangeInput" placeholder="范围如 1-30" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
-                    <button class="btn btn-study" style="padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.processSelection()">选中</button>
-                    
-                    <div style="width: 1px; height: 16px; background: var(--divider); flex-shrink: 0; margin: 0 2px;"></div>
-                    
-                    <input type="text" id="deckNameInput" placeholder="命名牌组" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
-                    <button class="btn" style="background: white; padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.createDeck()">建组</button>
-                </div>
-
-                <div class="table-wrapper">
-                    <table>
-                        <thead><tr><th class="col-check"><input type="checkbox" id="selectAll" onchange="App.handleSelectAll()"></th><th class="col-index">序号</th><th style="width:30%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
-                        <tbody id="wordTableBody"></tbody>
-                    </table>
+                <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                    <span style="font-size: 13px; font-weight: 600; color: var(--text-sub);">当前:</span>
+                    <select id="datasetSelect" onchange="App.changeDataset()" style="width: 100%; font-size: 13px;"></select>
                 </div>
             </div>
+
+            <div id="deckShelf" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px"></div>
+            
+            <div class="control-panel" style="display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 12px;">
+                <input type="text" id="rangeInput" placeholder="范围如1-30" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
+                <button class="btn btn-study" style="padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.processSelection()">选中</button>
+                
+                <div style="width: 1px; height: 16px; background: var(--divider); flex-shrink: 0; margin: 0 2px;"></div>
+                
+                <input type="text" id="deckNameInput" placeholder="命名牌组" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
+                <button class="btn" style="background: white; padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.createDeck()">建组</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th class="col-check"><input type="checkbox" id="selectAll" onchange="App.handleSelectAll()"></th><th class="col-index">序号</th><th style="width:30%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
+                    <tbody id="wordTableBody"></tbody>
+                </table>
+            </div>
+            
         </div>
 
-        <div id="tab-preview" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.goBack('select')">返回</button>
+        <div id="tab-preview" class="section hidden" style="padding-top: 10px;">
             <div class="card">
                 <div class="card-header" style="flex-direction: column; align-items: stretch; gap: 15px;">
                     <h2 style="text-align: center;">本次目标 (<span id="preview-count" style="color:var(--primary)">0</span> 词)</h2>
@@ -202,13 +201,13 @@
             </div>
         </div>
 
-        <div id="tab-study" class="section hidden" style="padding-top: 40px;">
+        <div id="tab-study" class="section hidden" style="padding-top: 10px;">
             <div class="study-box">
                 <div id="studyProgress" style="font-weight:700; color:var(--text-sub); margin-bottom:12px; font-size: 13px; letter-spacing: 0.5px;"></div>
                 <div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
                 <div class="word-card">
                     <div id="q-index" style="color:var(--text-sub); font-size:14px; font-weight:700">#--</div>
-                    <div id="q-word" class="q-word" onclick="App.replayAudio()" title="点击重新发音">Word</div>
+                    <div id="q-word" class="q-word" onclick="App.replayAudio()" title="点击发音">Word</div>
                     <div id="q-pos">词性</div>
                     <div id="answer-container">
                         <div id="reveal-area"><div id="ans-en">English</div><div id="ans-cn">中文释义</div></div>
@@ -221,47 +220,33 @@
             </div>
         </div>
 
-        <div id="tab-stats" class="section hidden" style="padding-top: 20px;">
-            <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()">
-                <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2 id="mistake-title">今日错题</h2>
-                </div>
+        <div id="tab-stats" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
+            <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()" style="margin-bottom: 20px; padding: 28px 16px;">
+                <h2 id="mistake-title" style="margin:0; text-align:center;">今日事</h2>
             </div>
-            <div class="card card-blue clickable-card" onclick="App.enterAccumulationView()">
-                <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>厚积薄发 (全量历程)</h2>
-                </div>
+            <div class="card card-blue clickable-card" onclick="App.enterAccumulationView()" style="margin-bottom: 20px; padding: 28px 16px;">
+                <h2 style="margin:0; text-align:center;">厚积薄发</h2>
             </div>
-            <div class="card card-emerald clickable-card" onclick="App.switchTab('daily-menu')">
-                <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>日积月累 (打卡报表)</h2>
-                </div>
+            <div class="card card-emerald clickable-card" onclick="App.switchTab('daily-menu')" style="margin-bottom: 20px; padding: 28px 16px;">
+                <h2 style="margin:0; text-align:center;">日积月累</h2>
             </div>
-            <div class="card card-amber clickable-card" onclick="App.enterDataManagement()">
-                <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>数据管理 (缓存)</h2>
-                </div>
+            <div class="card card-amber clickable-card" onclick="App.enterDataManagement()" style="margin-bottom: 0; padding: 28px 16px;">
+                <h2 style="margin:0; text-align:center;">数据管理</h2>
             </div>
         </div>
 
-        <div id="tab-daily-menu" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
-            <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()">
-                <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>平均背诵趋势图</h2>
-                </div>
+        <div id="tab-daily-menu" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
+            <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()" style="margin-bottom: 20px; padding: 36px 16px;">
+                <h2 style="margin:0; text-align:center;">背诵趋势图</h2>
             </div>
-            <div class="card card-emerald clickable-card" onclick="App.enterDailyTableDetail()">
-                <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>每日背诵流水表</h2>
-                </div>
+            <div class="card card-emerald clickable-card" onclick="App.enterDailyTableDetail()" style="margin-bottom: 0; padding: 36px 16px;">
+                <h2 style="margin:0; text-align:center;">每日背诵流水</h2>
             </div>
         </div>
 
-        <div id="tab-learning-progress" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.goBack('daily-menu')">返回</button>
+        <div id="tab-learning-progress" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <h2 style="margin-bottom: 20px; font-weight:700;">背诵趋势 (日均数量)</h2>
+                <h2 style="margin-bottom: 20px; font-weight:700; text-align: center;">背诵趋势</h2>
                 <div class="chart-controls">
                     <button class="btn bin-btn" id="bin-1" onclick="App.renderBinnedChart(1)">日</button>
                     <button class="btn bin-btn" id="bin-7" onclick="App.renderBinnedChart(7)">周</button>
@@ -273,40 +258,36 @@
             </div>
         </div>
 
-        <div id="tab-daily-table" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.goBack('daily-menu')">返回</button>
+        <div id="tab-daily-table" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <div class="card-header"><h2>背诵详单</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
+                <div class="card-header"><h2>背诵详情</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
                 <div class="table-wrapper"><table id="dailyTable"><thead><tr><th>日期</th><th style="width:40px;">数量</th><th style="width:40px;">认识</th><th style="width:50px;">不认识</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
             </div>
         </div>
 
-        <div id="tab-accumulation-detail" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
+        <div id="tab-accumulation-detail" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <div class="card-header"><h2>全量首背历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
+                <div class="card-header"><h2>历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
                 <div class="table-wrapper">
                     <table id="accTable">
-                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号⇅</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">错⇅</th></tr></thead>
+                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">次数</th></tr></thead>
                         <tbody id="accBody"></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <div id="tab-mistake-detail" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
+        <div id="tab-mistake-detail" class="section hidden" style="padding-top: 10px;">
             <div class="card card-rose">
-                <h2 id="mistake-detail-title" style="margin-bottom: 15px;">待消灭错题</h2>
+                <h2 id="mistake-detail-title" style="margin-bottom: 15px; text-align: center;">待消灭错题</h2>
                 <div class="table-wrapper"><table><thead><tr><th class="col-index">序号</th><th style="width:40%">单词</th><th>释义</th></tr></thead><tbody id="mistakeBody"></tbody></table></div>
                 <button class="btn btn-active" style="width:100%; padding:16px; margin-top:20px; font-size:16px;" onclick="App.retryMistakesFlow()">再来一遍！</button>
             </div>
         </div>
 
-        <div id="tab-data-management" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
+        <div id="tab-data-management" class="section hidden" style="padding-top: 10px;">
             <div class="card card-amber">
-                <h2 style="margin-bottom: 20px; font-weight:700;">已导入的数据源</h2>
+                <h2 style="margin-bottom: 20px; font-weight:700; text-align: center;">已导入的数据源</h2>
                 <div class="table-wrapper">
                     <table>
                         <thead><tr><th>数据源名称</th><th style="width:40px;">单词</th><th style="width:50px; text-align:right;">操作</th></tr></thead>
@@ -365,8 +346,13 @@ const App = {
         document.getElementById('excelFile').addEventListener('change', (e) => this.handleFileUpload(e));
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
+        
+        // 激活语音包监听
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        }
 
-        // 监听安卓等系统层面的返回按键操作
+        // 监听安卓系统层面的侧滑返回按键
         window.addEventListener('popstate', (e) => {
             if (e.state && e.state.tab) {
                 this.switchTab(e.state.tab, true);
@@ -374,37 +360,54 @@ const App = {
                 this.switchTab('select', true);
             }
         });
-        // 初始化当前历史记录
         history.replaceState({ tab: 'select' }, '', '#select');
-    },
-
-    // UI按钮统一返回逻辑
-    goBack: function(fallbackTab) {
-        if (window.history.length > 1 && window.history.state !== null) {
-            window.history.back(); // 优先触发系统原生的退回
-        } else {
-            this.switchTab(fallbackTab); // 如果是强行唤起，则走 Fallback
-        }
     },
 
     unlockAudio: function() {
         if (this.state.audioUnlocked) return;
+        try { const dummy = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'); dummy.play().catch(()=>{}); } catch(e) {}
         try { const msg = new SpeechSynthesisUtterance(''); msg.volume = 0; window.speechSynthesis.speak(msg); } catch(e) {}
-        try { const dummyAudio = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'); dummyAudio.play().catch(e => {}); } catch(e) {}
         this.state.audioUnlocked = true;
     },
 
+    // 优化1：三重降级的高可用发音引擎
     speakWord: function(word) {
         try { 
-            const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`;
-            const audio = new Audio(url);
-            audio.play().catch(e => {
-                window.speechSynthesis.cancel(); 
-                const msg = new SpeechSynthesisUtterance(word); 
-                msg.lang = 'es-ES'; msg.rate = 0.9; 
-                window.speechSynthesis.speak(msg);
-            });
-        } catch (e) {}
+            // 顺位1：有道翻译接口 (国内网络不卡)
+            const youdaoAudio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&le=es`);
+            const playPromise = youdaoAudio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    // 顺位2：谷歌翻译接口 (如果你在西班牙，这个大概率能通)
+                    const googleAudio = new Audio(`https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`);
+                    googleAudio.play().catch(err => {
+                        // 顺位3：调用系统本地语音包
+                        this.fallbackTTS(word);
+                    });
+                });
+            }
+        } catch (e) {
+            this.fallbackTTS(word);
+        }
+    },
+    
+    // 调用安卓系统底层语音引擎
+    fallbackTTS: function(word) {
+        window.speechSynthesis.cancel(); 
+        const msg = new SpeechSynthesisUtterance(word); 
+        msg.lang = 'es-ES'; 
+        msg.rate = 0.9; 
+        
+        // 尝试寻找你下载的最高清的 Google 离线包
+        const voices = window.speechSynthesis.getVoices();
+        const esVoices = voices.filter(v => v.lang.toLowerCase().includes('es'));
+        if (esVoices.length > 0) {
+            const bestVoice = esVoices.find(v => v.name.includes('Google') || v.name.includes('Network') || v.name.includes('Premium'));
+            msg.voice = bestVoice || esVoices[0];
+        }
+        
+        window.speechSynthesis.speak(msg);
     },
     
     replayAudio: function() {
@@ -468,7 +471,7 @@ const App = {
     processSelection: function() {
         this.selectByRange(); 
         const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
-        if (ids.length === 0) return alert("请先输入范围或在列表中勾选要背诵的单词！");
+        if (ids.length === 0) return alert("输入范围或勾选单词！");
         this.previewSelected(ids);
     },
 
@@ -487,7 +490,6 @@ const App = {
         this.unlockAudio(); 
         if (this.state.currentPracticeList.length === 0) return alert("待背诵列表为空！");
         
-        // 彻底修复安卓端的乱序 BUG：弃用 Math.random()-0.5，使用标准的 Fisher-Yates 洗牌算法
         let list = [...this.state.currentPracticeList]; 
         if (isShuffle) {
             for (let i = list.length - 1; i > 0; i--) {
@@ -551,17 +553,28 @@ const App = {
         const title = document.getElementById('mistake-title');
         const card = document.getElementById('mistake-card');
         if (bad.length === 0) { 
-            title.innerHTML = `今日错题 <span style="color:var(--success); font-size:14px; font-weight:600;">(已清空)</span>`; 
+            title.innerHTML = `今日事<span style="display:block; color:var(--success); font-size:14px; font-weight:600; margin-top:14px;">今日毕！！！</span>`; 
             if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.6"; }
         } else { 
-            title.innerHTML = `今日错题 <span style="color:var(--error); font-size:14px; font-weight:600;">(${bad.length} 词待消灭)</span>`; 
+            title.innerHTML = `今日事<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:10px;">(${bad.length} 词待消灭)</span>`; 
             if(card) { card.style.pointerEvents = "auto"; card.style.opacity = "1"; }
         }
     },
 
     switchTab: function(id, fromHistory = false) {
-        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden')); 
-        document.getElementById('tab-' + id).classList.remove('hidden');
+        // Handle hide/show by explicitly replacing display class
+        document.querySelectorAll('.section').forEach(s => {
+            s.classList.add('hidden');
+            s.style.setProperty('display', '', 'important'); // clean up explicit inline displays
+        }); 
+        
+        const target = document.getElementById('tab-' + id);
+        target.classList.remove('hidden');
+        
+        // Fix for centering: Force display flex if it's a menu tab
+        if (['stats', 'daily-menu'].includes(id)) {
+            target.style.setProperty('display', 'flex', 'important');
+        }
         
         let activeId = id;
         if (id === 'preview') activeId = 'select';
@@ -574,7 +587,7 @@ const App = {
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
         
-        // 只有非手势返回的点击，才向手机推送新的系统级历史状态
+        // 只有非手机手势返回的点击，才向手机推送系统历史
         if (!fromHistory) {
             history.pushState({ tab: id }, '', `#${id}`);
         }
@@ -636,11 +649,18 @@ const App = {
     
     createDeck: function() { 
         this.selectByRange(); 
-        const n = document.getElementById('deckNameInput').value.trim(), ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
-        if(!n || ids.length === 0) return alert("请命名牌组并输入范围或勾选单词！"); 
-        this.state.decks[n] = ids; localStorage.setItem('es_decks', JSON.stringify(this.state.decks)); this.renderDeckShelf(); 
+        const n = document.getElementById('deckNameInput').value.trim();
+        const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
+        
+        if(!n || ids.length === 0) {
+            return alert("请先选中单词，并输入牌组名称，才能建组！"); 
+        }
+        this.state.decks[n] = ids; 
+        localStorage.setItem('es_decks', JSON.stringify(this.state.decks)); 
+        this.renderDeckShelf(); 
         document.getElementById('deckNameInput').value = ''; 
     },
+    
     handleSelectAll: function() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.word-check').forEach(cb => cb.checked = c); },
 
     enterMistakeDetail: function() {
@@ -652,7 +672,6 @@ const App = {
     
     retryMistakesFlow: function() {
         this.unlockAudio(); 
-        // 同样应用稳定的 Fisher-Yates 洗牌
         let list = [...this.state.tempMistakes]; 
         for (let i = list.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -730,7 +749,7 @@ const App = {
                 labels, 
                 datasets: [
                     { label: '认识 (绿)', data: knownVals, backgroundColor: '#10B981' }, 
-                    { label: '不认识 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
+                    { label: '忘记 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
                 ] 
             }, 
             options: { 
