@@ -46,7 +46,6 @@
         .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; }
         .main-scroll-area::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { display: none; }
 
-        /* 完美修复排版 BUG：使用 :not(.hidden) 让居中样式只在显示时生效 */
         .menu-container:not(.hidden) {
             display: flex;
             flex-direction: column;
@@ -149,6 +148,8 @@
     </style>
 </head>
 <body>
+
+<div id="sys-back-area" onclick="App.goBack()" style="position: fixed; top: 0; left: 0; width: 60px; height: 60px; z-index: 9999; background: transparent; display: none;"></div>
 
 <div id="next-overlay" onclick="App.nextCard()"></div>
 
@@ -349,22 +350,53 @@ const App = {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        window.addEventListener('popstate', (e) => {
-            const hash = window.location.hash.replace('#', '');
-            if (e.state && e.state.tab) {
-                this.switchTab(e.state.tab, true);
-            } else if (hash) {
-                this.switchTab(hash, true); // 兼容本地 hash 跳转
-            } else {
-                this.switchTab('select', true);
+        // --- 纯 JS 手势侦测逻辑开始 ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
             }
-        });
-        
-        // 使用 try...catch 兼容本地协议
-        try {
-            history.replaceState({ tab: 'select' }, '', '#select');
-        } catch (err) {
-            if (!window.location.hash) window.location.replace('#select');
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length > 0) {
+                let touchEndX = e.changedTouches[0].clientX;
+                let touchEndY = e.changedTouches[0].clientY;
+                let deltaX = touchEndX - touchStartX;
+                let deltaY = touchEndY - touchStartY;
+
+                // 判断是否为返回手势：起点在屏幕左侧边缘(<=40px)，向右滑动且横滑距离>50px，纵向偏差<50px
+                if (touchStartX <= 40 && deltaX > 50 && Math.abs(deltaY) < 50) {
+                    const backBtn = document.getElementById('sys-back-area');
+                    // 只有在特定界面（透明按钮处于显示状态时）才激活返回
+                    if (backBtn && backBtn.style.display !== 'none') {
+                        App.goBack();
+                    }
+                }
+            }
+        }, { passive: true });
+        // --- 纯 JS 手势侦测逻辑结束 ---
+    },
+
+    // 核心跳转返回路由控制
+    goBack: function() {
+        const activeTabs = Array.from(document.querySelectorAll('.section:not(.hidden)')).map(s => s.id);
+        if (activeTabs.includes('tab-preview')) {
+            this.switchTab('select');
+        } else if (activeTabs.includes('tab-learning-progress') || activeTabs.includes('tab-daily-table')) {
+            this.switchTab('daily-menu'); // 从二级图表退回二级菜单
+        } else if (activeTabs.includes('tab-daily-menu') || activeTabs.includes('tab-mistake-detail') || 
+                   activeTabs.includes('tab-accumulation-detail') || activeTabs.includes('tab-data-management')) {
+            this.switchTab('stats');
+        } else if (activeTabs.includes('tab-study')) {
+            if (this.state.isReviewMode) {
+                this.switchTab('stats');
+            } else {
+                this.switchTab('select');
+            }
         }
     },
 
@@ -536,14 +568,9 @@ const App = {
             document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
-            // 结束背诵，跳转防止手势又退回来
+            // 结束背诵，无历史记录操作，直接切换页面
             const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
-            try {
-                history.replaceState({ tab: fallbackTarget }, '', `#${fallbackTarget}`);
-            } catch (err) {
-                window.location.replace(`#${fallbackTarget}`);
-            }
-            this.switchTab(fallbackTarget, true);
+            this.switchTab(fallbackTarget);
         }
     },
 
@@ -572,11 +599,10 @@ const App = {
         }
     },
 
-    // 核心修复点：去除所有 JS 操作内联的 display 属性
-    switchTab: function(id, fromHistory = false) {
+    switchTab: function(id) {
         document.querySelectorAll('.section').forEach(s => {
             s.classList.add('hidden');
-            s.style.removeProperty('display'); // 强力清除可能残留的导致重叠的内联样式
+            s.style.removeProperty('display'); 
         }); 
         
         const target = document.getElementById('tab-' + id);
@@ -595,17 +621,12 @@ const App = {
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
         
-        if (!fromHistory) {
-            try {
-                if (!history.state || history.state.tab !== id) {
-                    history.pushState({ tab: id }, '', `#${id}`);
-                }
-            } catch (err) {
-                // 安卓本地打开时的降级方案，手动改变 hash 以建立历史栈
-                if (window.location.hash !== `#${id}`) {
-                    window.location.hash = id;
-                }
-            }
+        // 智能控制系统返回按钮（即透明的热区）的显示与隐藏
+        const backBtn = document.getElementById('sys-back-area');
+        if (['preview', 'study', 'mistake-detail', 'daily-menu', 'learning-progress', 'daily-table', 'accumulation-detail', 'data-management'].includes(id)) {
+            backBtn.style.display = 'block';
+        } else {
+            backBtn.style.display = 'none';
         }
     },
 
