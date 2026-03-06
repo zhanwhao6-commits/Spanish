@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.0</title>
+    <title>西语背词助手 v1.11</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,12 +19,11 @@
             --surface: #FFFFFF; 
             --surface-variant: #F1F5F9;
             
-            /* 优化3：将所有的紫色替换为护眼莫兰迪绿 (Emerald) */
-            --primary: #10B981;        /* 主色调：柔和的翠绿色 */
+            --primary: #10B981;        /* 护眼莫兰迪绿 */
             --primary-text: #FFFFFF;
-            --accent: #059669;         /* 强调色：稍深的绿色，用于对比 */
-            --accent-bg: #D1FAE5;      /* 极淡的绿色背景，用于词性标签等 */
-            --accent-text: #065F46;    /* 深绿色文字 */
+            --accent: #059669;         /* 强调绿 */
+            --accent-bg: #D1FAE5;      
+            --accent-text: #065F46;    
             
             --success: #10B981; 
             --error: #F43F5E; 
@@ -77,7 +76,6 @@
         
         .clickable-card { cursor: pointer; transition: transform 0.1s; user-select: none; -webkit-tap-highlight-color: transparent; }
         .clickable-card:active { transform: scale(0.96); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        /* 优化1：删去了 chevron 的 CSS */
         
         .card-rose { background: #FFF1F2; border-color: #FFE4E6; box-shadow: none; }
         .card-rose h2 { color: #E11D48; }
@@ -154,7 +152,6 @@
         
         <div id="tab-select" class="section">
             <div class="card">
-                
                 <div class="control-panel" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px;">
                     <div style="flex: 1; overflow: hidden; display: flex; align-items: center; min-width: 0;">
                         <input type="file" id="excelFile" accept=".xlsx, .xls" style="width: 100%; font-size: 13px; text-overflow: ellipsis; overflow: hidden;">
@@ -168,7 +165,7 @@
                 <div id="deckShelf" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px"></div>
                 
                 <div class="control-panel" style="display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 12px;">
-                    <input type="text" id="rangeInput" placeholder="范围如 1-50" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
+                    <input type="text" id="rangeInput" placeholder="范围如 1-30" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
                     <button class="btn btn-study" style="padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.processSelection()">选中</button>
                     
                     <div style="width: 1px; height: 16px; background: var(--divider); flex-shrink: 0; margin: 0 2px;"></div>
@@ -187,7 +184,7 @@
         </div>
 
         <div id="tab-preview" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('select')">返回</button>
+            <button class="btn btn-back" onclick="App.goBack('select')">返回</button>
             <div class="card">
                 <div class="card-header" style="flex-direction: column; align-items: stretch; gap: 15px;">
                     <h2 style="text-align: center;">本次目标 (<span id="preview-count" style="color:var(--primary)">0</span> 词)</h2>
@@ -232,26 +229,26 @@
             </div>
             <div class="card card-blue clickable-card" onclick="App.enterAccumulationView()">
                 <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>厚积薄发</h2>
+                    <h2>厚积薄发 (全量历程)</h2>
                 </div>
             </div>
             <div class="card card-emerald clickable-card" onclick="App.switchTab('daily-menu')">
                 <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>日积月累</h2>
+                    <h2>日积月累 (打卡报表)</h2>
                 </div>
             </div>
             <div class="card card-amber clickable-card" onclick="App.enterDataManagement()">
                 <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>数据管理</h2>
+                    <h2>数据管理 (缓存)</h2>
                 </div>
             </div>
         </div>
 
         <div id="tab-daily-menu" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
+            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
             <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()">
                 <div class="card-header" style="margin-bottom:0; justify-content: center;">
-                    <h2>背诵趋势图</h2>
+                    <h2>平均背诵趋势图</h2>
                 </div>
             </div>
             <div class="card card-emerald clickable-card" onclick="App.enterDailyTableDetail()">
@@ -262,9 +259,9 @@
         </div>
 
         <div id="tab-learning-progress" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('daily-menu')">返回</button>
+            <button class="btn btn-back" onclick="App.goBack('daily-menu')">返回</button>
             <div class="card">
-                <h2 style="margin-bottom: 20px; font-weight:700;">背诵趋势</h2>
+                <h2 style="margin-bottom: 20px; font-weight:700;">背诵趋势 (日均数量)</h2>
                 <div class="chart-controls">
                     <button class="btn bin-btn" id="bin-1" onclick="App.renderBinnedChart(1)">日</button>
                     <button class="btn bin-btn" id="bin-7" onclick="App.renderBinnedChart(7)">周</button>
@@ -277,20 +274,20 @@
         </div>
 
         <div id="tab-daily-table" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('daily-menu')">返回</button>
+            <button class="btn btn-back" onclick="App.goBack('daily-menu')">返回</button>
             <div class="card">
-                <div class="card-header"><h2>背诵详情</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
+                <div class="card-header"><h2>背诵详单</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
                 <div class="table-wrapper"><table id="dailyTable"><thead><tr><th>日期</th><th style="width:40px;">数量</th><th style="width:40px;">认识</th><th style="width:50px;">不认识</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
             </div>
         </div>
 
         <div id="tab-accumulation-detail" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
+            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
             <div class="card">
-                <div class="card-header"><h2>历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
+                <div class="card-header"><h2>全量首背历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
                 <div class="table-wrapper">
                     <table id="accTable">
-                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">次数</th></tr></thead>
+                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号⇅</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">错⇅</th></tr></thead>
                         <tbody id="accBody"></tbody>
                     </table>
                 </div>
@@ -298,7 +295,7 @@
         </div>
 
         <div id="tab-mistake-detail" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
+            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
             <div class="card card-rose">
                 <h2 id="mistake-detail-title" style="margin-bottom: 15px;">待消灭错题</h2>
                 <div class="table-wrapper"><table><thead><tr><th class="col-index">序号</th><th style="width:40%">单词</th><th>释义</th></tr></thead><tbody id="mistakeBody"></tbody></table></div>
@@ -307,7 +304,7 @@
         </div>
 
         <div id="tab-data-management" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
+            <button class="btn btn-back" onclick="App.goBack('stats')">返回</button>
             <div class="card card-amber">
                 <h2 style="margin-bottom: 20px; font-weight:700;">已导入的数据源</h2>
                 <div class="table-wrapper">
@@ -368,13 +365,32 @@ const App = {
         document.getElementById('excelFile').addEventListener('change', (e) => this.handleFileUpload(e));
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
+
+        // 监听安卓等系统层面的返回按键操作
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.tab) {
+                this.switchTab(e.state.tab, true);
+            } else {
+                this.switchTab('select', true);
+            }
+        });
+        // 初始化当前历史记录
+        history.replaceState({ tab: 'select' }, '', '#select');
+    },
+
+    // UI按钮统一返回逻辑
+    goBack: function(fallbackTab) {
+        if (window.history.length > 1 && window.history.state !== null) {
+            window.history.back(); // 优先触发系统原生的退回
+        } else {
+            this.switchTab(fallbackTab); // 如果是强行唤起，则走 Fallback
+        }
     },
 
     unlockAudio: function() {
         if (this.state.audioUnlocked) return;
-        const msg = new SpeechSynthesisUtterance(''); msg.volume = 0; window.speechSynthesis.speak(msg);
-        const dummyAudio = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');
-        dummyAudio.play().catch(e => {});
+        try { const msg = new SpeechSynthesisUtterance(''); msg.volume = 0; window.speechSynthesis.speak(msg); } catch(e) {}
+        try { const dummyAudio = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'); dummyAudio.play().catch(e => {}); } catch(e) {}
         this.state.audioUnlocked = true;
     },
 
@@ -452,7 +468,7 @@ const App = {
     processSelection: function() {
         this.selectByRange(); 
         const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
-        if (ids.length === 0) return alert("输入范围或勾选单词！");
+        if (ids.length === 0) return alert("请先输入范围或在列表中勾选要背诵的单词！");
         this.previewSelected(ids);
     },
 
@@ -471,8 +487,14 @@ const App = {
         this.unlockAudio(); 
         if (this.state.currentPracticeList.length === 0) return alert("待背诵列表为空！");
         
+        // 彻底修复安卓端的乱序 BUG：弃用 Math.random()-0.5，使用标准的 Fisher-Yates 洗牌算法
         let list = [...this.state.currentPracticeList]; 
-        if (isShuffle) list.sort(() => Math.random() - 0.5);
+        if (isShuffle) {
+            for (let i = list.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [list[i], list[j]] = [list[j], list[i]];
+            }
+        }
         
         this.state.currentPracticeList = list;
         this.state.isReviewMode = false; this.state.currentIndex = 0;
@@ -537,7 +559,7 @@ const App = {
         }
     },
 
-    switchTab: function(id) {
+    switchTab: function(id, fromHistory = false) {
         document.querySelectorAll('.section').forEach(s => s.classList.add('hidden')); 
         document.getElementById('tab-' + id).classList.remove('hidden');
         
@@ -551,6 +573,11 @@ const App = {
 
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
+        
+        // 只有非手势返回的点击，才向手机推送新的系统级历史状态
+        if (!fromHistory) {
+            history.pushState({ tab: id }, '', `#${id}`);
+        }
     },
 
     handleKeydown: function(e) {
@@ -625,7 +652,14 @@ const App = {
     
     retryMistakesFlow: function() {
         this.unlockAudio(); 
-        this.state.currentPracticeList = this.state.tempMistakes.sort(()=>Math.random()-0.5); 
+        // 同样应用稳定的 Fisher-Yates 洗牌
+        let list = [...this.state.tempMistakes]; 
+        for (let i = list.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [list[i], list[j]] = [list[j], list[i]];
+        }
+        this.state.currentPracticeList = list;
+        
         this.state.isReviewMode = true; this.state.currentIndex = 0; 
         this.switchTab('study'); 
         this.state.isAnswerStep = false; 
@@ -645,7 +679,6 @@ const App = {
         }); return stats;
     },
 
-    // 优化3：红绿堆叠柱状图
     renderBinnedChart: function(binDays) {
         document.querySelectorAll('.bin-btn').forEach(b => b.classList.remove('btn-active')); document.getElementById(`bin-${binDays}`).classList.add('btn-active');
         const allTs = []; Object.values(this.state.logs).forEach(wordLogs => wordLogs.forEach(l => { if(!l.isReview) allTs.push(l.time); }));
@@ -696,16 +729,16 @@ const App = {
             data: { 
                 labels, 
                 datasets: [
-                    { label: '认识 (日均)', data: knownVals, backgroundColor: '#10B981' }, // 绿
-                    { label: '不认识 (日均)', data: unknownVals, backgroundColor: '#F43F5E' } // 红
+                    { label: '认识 (绿)', data: knownVals, backgroundColor: '#10B981' }, 
+                    { label: '不认识 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
                 ] 
             }, 
             options: { 
                 responsive: true, 
                 maintainAspectRatio: false,
                 scales: {
-                    x: { stacked: true }, // X轴堆叠
-                    y: { stacked: true }  // Y轴堆叠
+                    x: { stacked: true }, 
+                    y: { stacked: true }  
                 }
             } 
         });
