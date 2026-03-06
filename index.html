@@ -350,13 +350,22 @@ const App = {
         }
 
         window.addEventListener('popstate', (e) => {
+            const hash = window.location.hash.replace('#', '');
             if (e.state && e.state.tab) {
                 this.switchTab(e.state.tab, true);
+            } else if (hash) {
+                this.switchTab(hash, true); // 兼容本地 hash 跳转
             } else {
                 this.switchTab('select', true);
             }
         });
-        history.replaceState({ tab: 'select' }, '', '#select');
+        
+        // 使用 try...catch 兼容本地协议
+        try {
+            history.replaceState({ tab: 'select' }, '', '#select');
+        } catch (err) {
+            if (!window.location.hash) window.location.replace('#select');
+        }
     },
 
     unlockAudio: function() {
@@ -529,7 +538,11 @@ const App = {
         } else { 
             // 结束背诵，跳转防止手势又退回来
             const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
-            history.replaceState({ tab: fallbackTarget }, '', `#${fallbackTarget}`);
+            try {
+                history.replaceState({ tab: fallbackTarget }, '', `#${fallbackTarget}`);
+            } catch (err) {
+                window.location.replace(`#${fallbackTarget}`);
+            }
             this.switchTab(fallbackTarget, true);
         }
     },
@@ -583,8 +596,15 @@ const App = {
         document.querySelector('.main-scroll-area').scrollTop = 0; 
         
         if (!fromHistory) {
-            if (!history.state || history.state.tab !== id) {
-                history.pushState({ tab: id }, '', `#${id}`);
+            try {
+                if (!history.state || history.state.tab !== id) {
+                    history.pushState({ tab: id }, '', `#${id}`);
+                }
+            } catch (err) {
+                // 安卓本地打开时的降级方案，手动改变 hash 以建立历史栈
+                if (window.location.hash !== `#${id}`) {
+                    window.location.hash = id;
+                }
             }
         }
     },
