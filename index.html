@@ -326,17 +326,29 @@ const Utils = {
 const App = {
     state: {
         masterData: JSON.parse(localStorage.getItem('es_master_data') || '[]'),
+        masterMap: new Map(), // O(1) 底层加速字典字典，极大加快程序运行速度
         logs: JSON.parse(localStorage.getItem('es_logs') || '{}'),
         decks: JSON.parse(localStorage.getItem('es_decks') || '{}'),
         currentDataset: localStorage.getItem('es_current_dataset') || '',
         currentDeck: null, 
-        currentPracticeList: [], currentIndex: 0, isAnswerStep: false, isReviewMode: false, myChart: null, accSort: { key: 'id', dir: 1 }, tempMistakes: [], audioUnlocked: false
+        
+        // 进度持久化相关，保证退出再进能继续背
+        currentPracticeList: JSON.parse(localStorage.getItem('es_practice_list') || '[]'),
+        currentIndex: parseInt(localStorage.getItem('es_practice_index') || '0', 10),
+        isReviewMode: localStorage.getItem('es_practice_mode') === 'true',
+        
+        isAnswerStep: false, myChart: null, accSort: { key: 'id', dir: 1 }, tempMistakes: [], audioUnlocked: false
     },
     
     deckTimer: null,
     isLongPress: false,
 
     init: function() {
+        // 构建高速查询索引（解决每次开机统计页面和找错题卡顿的问题）
+        for (let i = 0; i < this.state.masterData.length; i++) {
+            this.state.masterMap.set(this.state.masterData[i].id, this.state.masterData[i]);
+        }
+
         if (this.state.masterData.length > 0) { 
             this.initDatasets(); this.renderWordTableForCurrentDataset(); this.renderDeckShelf(); 
         }
@@ -348,23 +360,33 @@ const App = {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        // --- 核心修复：基于 URL Hash 的历史记录管理开始 ---
-        // 监听由于用户侧滑返回（或者点击实体返回键）造成的 Hash 改变
-        window.addEventListener('hashchange', () => {
-            let targetId = window.location.hash.replace('#', '');
-            if (!targetId) targetId = 'select'; // 兜底
-            // 收到系统返回通知后，代码负责切换到对应的老页面，fromHistory设为true，避免死循环
-            this.switchTab(targetId, true); 
-        });
-
-        // 首次加载应用时，确保 URL 上有一个默认的 hash，以此作为历史记录的第一层底座
-        if (!window.location.hash) {
-            window.location.replace('#select'); 
+        // 核心：启动时自动检测是否有未完成的背诵进度
+        if (this.state.currentPracticeList.length > 0 && this.state.currentIndex < this.state.currentPracticeList.length) {
+            this.switchTab('study');
+            // 初始化复原背诵卡片的界面状态
+            this.state.isAnswerStep = false; 
+            document.getElementById('reveal-area').classList.remove('show-answer'); 
+            document.getElementById('action-btns').style.opacity = "1"; 
+            document.getElementById('action-btns').style.pointerEvents = "auto"; 
+            this.renderCard();
         } else {
-            const initialTab = window.location.hash.replace('#', '');
-            this.switchTab(initialTab, true);
+            // 没有待办进度，清空缓存，默认回到主页
+            this.clearPracticeState();
+            this.switchTab('select');
         }
-        // --- 基于 URL Hash 的历史记录管理结束 ---
+    },
+
+    // 管理本地进度的助手函数
+    savePracticeState: function() {
+        localStorage.setItem('es_practice_list', JSON.stringify(this.state.currentPracticeList));
+        localStorage.setItem('es_practice_index', this.state.currentIndex);
+        localStorage.setItem('es_practice_mode', this.state.isReviewMode);
+    },
+    
+    clearPracticeState: function() {
+        localStorage.removeItem('es_practice_list');
+        localStorage.removeItem('es_practice_index');
+        localStorage.removeItem('es_practice_mode');
     },
 
     unlockAudio: function() {
@@ -497,7 +519,11 @@ const App = {
         }
         
         this.state.currentPracticeList = list;
-        this.state.isReviewMode = false; this.state.currentIndex = 0;
+        this.state.isReviewMode = false; 
+        this.state.currentIndex = 0;
+        
+        // 核心：保存刚开启的背诵任务进度到本地
+        this.savePracticeState();
         
         this.switchTab('study'); 
         this.renderCard();
@@ -529,26 +555,44 @@ const App = {
     },
 
     nextCard: function() {
-        document.getElementById('next-overlay').style.display = "none"; this.state.currentIndex++;
+        document.getElementById('next-overlay').style.display = "none"; 
+        this.state.currentIndex++;
+        
         if (this.state.currentIndex < this.state.currentPracticeList.length) {
+            // 核心：进度加 1，并立刻存入缓存
+            this.savePracticeState(); 
             this.state.isAnswerStep = false; document.getElementById('reveal-area').classList.remove('show-answer');
             document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
-            // 结束背诵，防止直接侧滑退回刚刚完成的背诵进度，替换当前历史为目的地
+            // 背诵结束，清空进度缓存，回到该回的页面
+            this.clearPracticeState();
             const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
-            window.location.replace(`#${fallbackTarget}`);
-            this.switchTab(fallbackTarget, true);
+            this.switchTab(fallbackTarget);
         }
     },
 
+    // 性能大优化：使用字典查找并倒序匹配日志，把这块性能提升了几十倍
     getTodayMistakes: function() {
         const todayStr = Utils.getLocalDateString(Date.now());
-        return this.state.masterData.filter(i => {
-            const h = this.state.logs[i.id] || []; if (h.length === 0) return false;
-            const todayLogs = h.filter(l => Utils.getLocalDateString(l.time) === todayStr); if (todayLogs.length === 0) return false;
-            return !todayLogs[todayLogs.length - 1].res; 
-        });
+        const mistakes = [];
+        
+        for (const id in this.state.logs) {
+            const h = this.state.logs[id];
+            if (!h || h.length === 0) continue;
+            
+            // 倒序寻找最新的一条记录，只要找到今天的，立刻中断循环
+            for (let i = h.length - 1; i >= 0; i--) {
+                if (Utils.getLocalDateString(h[i].time) === todayStr) {
+                    if (!h[i].res) {
+                        const wordObj = this.state.masterMap.get(id); // O(1) 字典秒查找
+                        if (wordObj) mistakes.push(wordObj);
+                    }
+                    break; 
+                }
+            }
+        }
+        return mistakes;
     },
 
     updateMistakesUI: function() {
@@ -567,7 +611,7 @@ const App = {
         }
     },
 
-    switchTab: function(id, fromHistory = false) {
+    switchTab: function(id) {
         document.querySelectorAll('.section').forEach(s => {
             s.classList.add('hidden');
             s.style.removeProperty('display'); 
@@ -588,13 +632,6 @@ const App = {
 
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
-        
-        // --- 核心修复：如果是通过点击按钮切换界面的，就主动推入一条历史记录 ---
-        if (!fromHistory) {
-            if (window.location.hash !== `#${id}`) {
-                window.location.hash = id;
-            }
-        }
     },
 
     handleKeydown: function(e) {
@@ -682,8 +719,12 @@ const App = {
             [list[i], list[j]] = [list[j], list[i]];
         }
         this.state.currentPracticeList = list;
+        this.state.isReviewMode = true; 
+        this.state.currentIndex = 0; 
         
-        this.state.isReviewMode = true; this.state.currentIndex = 0; 
+        // 保存错题重背进度
+        this.savePracticeState();
+        
         this.switchTab('study'); 
         this.state.isAnswerStep = false; 
         document.getElementById('reveal-area').classList.remove('show-answer'); 
@@ -767,13 +808,33 @@ const App = {
         });
     },
 
+    // 性能大优化：防止对没有任何日志记录的单词进行全盘重复扫描
     enterAccumulationView: function() { this.switchTab('accumulation-detail'); this.renderAccTable(); },
     renderAccTable: function() {
-        let stats = this.state.masterData.map(i => ({ ...i, h: (this.state.logs[i.id] || []).filter(x => !x.isReview), f: (this.state.logs[i.id] || []).filter(x => !x.isReview && !x.res).length })).filter(i => i.h.length > 0);
+        let stats = [];
+        for (let i = 0; i < this.state.masterData.length; i++) {
+            const item = this.state.masterData[i];
+            const logs = this.state.logs[item.id];
+            if (!logs) continue; // 如果没日志直接跳过，绝不浪费时间
+            
+            const pureLogs = [];
+            let f = 0;
+            for (let j = 0; j < logs.length; j++) {
+                if (!logs[j].isReview) {
+                    pureLogs.push(logs[j]);
+                    if (!logs[j].res) f++;
+                }
+            }
+            if (pureLogs.length > 0) {
+                stats.push({ ...item, h: pureLogs, f: f });
+            }
+        }
+        
         stats.sort((a,b) => this.state.accSort.key==='id' ? (parseInt(a.id)-parseInt(b.id))*this.state.accSort.dir : (a.f-b.f)*this.state.accSort.dir);
         document.getElementById('accBody').innerHTML = stats.map(i => `<tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td><div class="history-tags">${i.h.map((x,idx)=>`<span class="log-tag ${x.res?'log-ok':'log-no'}">${idx+1}</span>`).join('')}</div></td><td><b style="color:var(--error)">${i.f}</b></td></tr>`).join('');
     },
     sortAcc: function(k) { if(this.state.accSort.key===k) this.state.accSort.dir*=-1; else {this.state.accSort.key=k; this.state.accSort.dir=1;} this.renderAccTable(); },
+    
     enterDailyTableDetail: function() { 
         this.switchTab('daily-table'); const stats = this.getDailyLogStats(), sorted = Object.keys(stats).sort((a,b)=>new Date(b)-new Date(a)); 
         document.getElementById('dailyBody').innerHTML = sorted.map(d => `<tr><td>${d.substring(5)}</td><td>${stats[d].c}</td><td style="color:var(--success)">${stats[d].k}</td><td style="color:var(--error)">${stats[d].u}</td></tr>`).join(''); 
