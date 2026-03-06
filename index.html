@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v1.3</title>
+    <title>西语背词助手 v2.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -18,11 +18,14 @@
             --bg: #F8FAFC; 
             --surface: #FFFFFF; 
             --surface-variant: #F1F5F9;
-            --primary: #6366F1; 
+            
+            /* 优化3：将所有的紫色替换为护眼莫兰迪绿 (Emerald) */
+            --primary: #10B981;        /* 主色调：柔和的翠绿色 */
             --primary-text: #FFFFFF;
-            --accent: #8B5CF6; 
-            --accent-bg: #EDE9FE;
-            --accent-text: #6D28D9;
+            --accent: #059669;         /* 强调色：稍深的绿色，用于对比 */
+            --accent-bg: #D1FAE5;      /* 极淡的绿色背景，用于词性标签等 */
+            --accent-text: #065F46;    /* 深绿色文字 */
+            
             --success: #10B981; 
             --error: #F43F5E; 
             --text-main: #334155; 
@@ -34,54 +37,30 @@
             --radius-pill: 999px;
         }
 
-        /* 优化3：锁死 body，阻止橡皮筋滑动特效 */
         html, body { 
-            height: 100vh; /* 严格等于屏幕高度 */
-            overflow: hidden; /* 禁止整体页面拖动 */
-            overscroll-behavior-y: none; /* 禁用安卓回弹 */
-            margin: 0; 
-            padding: 0;
-            background: var(--bg);
-            font-family: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif; 
-            color: var(--text-main); 
-            -webkit-font-smoothing: antialiased; 
-            display: flex;
-            flex-direction: column;
+            height: 100vh; overflow: hidden; overscroll-behavior-y: none; margin: 0; padding: 0;
+            background: var(--bg); font-family: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif; 
+            color: var(--text-main); -webkit-font-smoothing: antialiased; display: flex; flex-direction: column;
         }
 
-        /* 顶部导航固定 */
-        header { 
-            background: rgba(255, 255, 255, 0.85); 
-            backdrop-filter: blur(20px); 
-            -webkit-backdrop-filter: blur(20px); 
-            height: 70px; 
-            display: flex; 
-            align-items: center; 
-            z-index: 1000; 
-            border-bottom: 1px solid var(--divider);
-            flex-shrink: 0; /* 防止被挤压 */
-        }
-        .nav { display: flex; justify-content: center; gap: 8px; width: 100%; padding: 0 10px; }
-
-        /* 中间内容区独立滚动 */
-        .main-scroll-area {
-            flex: 1; /* 占据剩余全部空间 */
-            overflow-y: auto; /* 允许内部上下滚动 */
-            -webkit-overflow-scrolling: touch; /* 开启 iOS 丝滑滚动 */
-            width: 100%;
-        }
-
-        .container { 
-            max-width: 900px; 
-            margin: 20px auto; 
-            padding: 0 15px 120px 15px; /* 底部留足空间给悬浮按钮 */
-            box-sizing: border-box;
-        }
-
-        /* 隐藏滚动条让视觉更像原生 App */
+        .main-scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; width: 100%; position: relative;}
+        .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; }
         .main-scroll-area::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { display: none; }
 
-        /* 按钮通用样式 */
+        #bottom-nav { 
+            background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); 
+            height: 65px; display: flex; align-items: center; justify-content: space-around; z-index: 1000; 
+            border-top: 1px solid var(--divider); flex-shrink: 0; padding-bottom: max(5px, env(safe-area-inset-bottom));
+        }
+        .nav-tab { 
+            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            height: 100%; color: var(--text-sub); font-weight: 700; font-size: 16px; 
+            cursor: pointer; transition: color 0.2s; background: transparent; border: none; outline: none;
+            -webkit-tap-highlight-color: transparent; letter-spacing: 0.5px;
+        }
+        .nav-tab:active { transform: scale(0.95); }
+        .nav-tab-active { color: var(--primary); } 
+
         .btn { 
             padding: 10px 20px; border: none; border-radius: var(--radius-pill); cursor: pointer; 
             font-size: 15px; background: #E2E8F0; color: var(--text-main); font-weight: 600; 
@@ -94,112 +73,67 @@
         .btn-danger { background: var(--error); color: white; }
         .btn-back { position: fixed; left: 15px; top: 15px; background: rgba(241, 245, 249, 0.9); color: var(--text-main); z-index: 2000; padding: 8px 16px; backdrop-filter: blur(10px); }
 
-        .card { 
-            background: var(--surface); padding: 20px 16px; border-radius: var(--radius-xl); 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid var(--surface);
-        }
+        .card { background: var(--surface); padding: 20px 16px; border-radius: var(--radius-xl); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid var(--surface); }
+        
+        .clickable-card { cursor: pointer; transition: transform 0.1s; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .clickable-card:active { transform: scale(0.96); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        /* 优化1：删去了 chevron 的 CSS */
         
         .card-rose { background: #FFF1F2; border-color: #FFE4E6; box-shadow: none; }
         .card-rose h2 { color: #E11D48; }
-        .card-rose .btn-active { background: #E11D48 !important; }
         .card-blue { background: #EFF6FF; border-color: #DBEAFE; box-shadow: none; }
         .card-blue h2 { color: #1D4ED8; }
-        .card-blue .btn-active { background: #3B82F6 !important; }
         .card-emerald { background: #ECFDF5; border-color: #D1FAE5; box-shadow: none; }
         .card-emerald h2 { color: #047857; }
-        .card-emerald .btn-active { background: #10B981 !important; }
+        .card-amber { background: #FFFBEB; border-color: #FEF3C7; box-shadow: none; }
+        .card-amber h2 { color: #B45309; }
 
         .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
         .card-header h2 { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px;}
 
         .hidden { display: none !important; }
 
-        /* 优化2：表单与操作面板重新排版 */
-        .control-panel {
-            display: flex; flex-direction: column; gap: 16px; 
-            background: var(--surface-variant); padding: 16px; 
-            border-radius: var(--radius-lg); margin: 20px 0;
-        }
-        .control-row { display: flex; align-items: center; gap: 12px; width: 100%; }
+        .control-panel { display: flex; flex-direction: column; gap: 12px; background: var(--surface-variant); padding: 12px 14px; border-radius: var(--radius-lg); margin: 20px 0; }
         
-        input[type="text"], select {
-            background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md);
-            padding: 12px 16px; font-family: inherit; font-size: 14px; color: var(--text-main); 
-            outline: none; box-sizing: border-box; width: 100%;
-        }
-        
+        input[type="text"], select { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 14px; font-family: inherit; font-size: 14px; color: var(--text-main); outline: none; box-sizing: border-box; width: 100%; }
         input[type="file"] { background: transparent; border: none; padding: 0; font-family: inherit; color: var(--text-main); width: 100%;}
-        input[type="file"]::file-selector-button {
-            background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-pill);
-            padding: 8px 16px; color: var(--text-main); font-weight: 600; cursor: pointer; margin-right: 12px;
-        }
-        
-        select {
-            appearance: none; font-weight: 600;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
-        }
+        input[type="file"]::file-selector-button { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-pill); padding: 8px 16px; color: var(--text-main); font-weight: 600; cursor: pointer; margin-right: 8px; }
+        select { appearance: none; font-weight: 600; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
 
-        /* 优化5：表格整体重构自适应 */
-        .table-wrapper { 
-            border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--surface);
-            overflow: hidden; /* 防止圆角被破坏 */
-        }
+        .table-wrapper { border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: auto; }
-        thead th { 
-            background: rgba(255,255,255,0.95); padding: 12px 8px; border-bottom: 1px solid var(--divider); 
-            font-size: 13px; font-weight: 600; color: var(--text-sub); 
-        }
+        thead th { background: rgba(255,255,255,0.95); padding: 12px 8px; border-bottom: 1px solid var(--divider); font-size: 13px; font-weight: 600; color: var(--text-sub); position: sticky; top: 0; z-index: 10;}
         td { padding: 12px 8px; border-bottom: 1px solid var(--divider); font-size: 14px; word-break: break-word;}
         tbody tr:last-child td { border-bottom: none; }
         
-        /* 紧凑型选择框列 */
         .col-check { width: 36px; text-align: center; }
         .col-index { width: 45px; font-size: 12px; color: var(--text-sub); }
+        .pos-badge { color: var(--accent-text); font-size: 12px; background: var(--accent-bg); padding: 2px 6px; border-radius: 4px; white-space: nowrap; font-weight: 600; }
 
-        input[type="checkbox"] {
-            appearance: none; width: 20px; height: 20px; border: 2px solid var(--text-sub); border-radius: 6px; cursor: pointer; position: relative;
-        }
+        input[type="checkbox"] { appearance: none; width: 20px; height: 20px; border: 2px solid var(--text-sub); border-radius: 6px; cursor: pointer; position: relative; }
         input[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
-        input[type="checkbox"]:checked::after {
-            content: ''; position: absolute; left: 6px; top: 2px; width: 4px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg);
-        }
+        input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 6px; top: 2px; width: 4px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 
-        /* 背诵卡片核心界面 */
         .study-box { max-width: 500px; margin: 0 auto; text-align: center; padding-top: 10px;}
         .word-card { background: transparent; padding: 20px 10px; display: flex; flex-direction: column; align-items: center;}
-        .q-word { font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; color: var(--text-main); margin: 10px 0; letter-spacing: -1px; line-height: 1.1; word-break: break-word;}
         
-        #q-pos {
-            color: var(--accent-text); background: var(--accent-bg); font-weight: 700; font-size: 1rem;
-            padding: 4px 12px; border-radius: var(--radius-md); display: inline-block; margin-top: 5px;
-        }
+        .q-word { font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; color: var(--text-main); margin: 10px 0; letter-spacing: -1px; line-height: 1.1; word-break: break-word; cursor: pointer; transition: transform 0.1s; user-select: none; -webkit-tap-highlight-color: transparent;}
+        .q-word:active { transform: scale(0.95); color: var(--primary); }
+        
+        #q-pos { color: var(--accent-text); background: var(--accent-bg); font-weight: 700; font-size: 1.15rem; padding: 6px 16px; border-radius: var(--radius-md); display: inline-block; margin-top: 8px; }
+        #ans-en { color: var(--text-sub); font-size: 1.35rem; font-weight: 700; margin-bottom: 12px; }
         
         .progress-container { width: 100%; background: var(--divider); border-radius: var(--radius-pill); height: 6px; margin-bottom: 24px; overflow: hidden; }
         .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.4s; border-radius: var(--radius-pill);}
 
-        .bottom-action-bar { 
-            position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); 
-            width: 100%; max-width: 500px; display: flex; gap: 12px; padding: 0 15px; box-sizing: border-box; 
-            z-index: 1000; transition: opacity 0.3s; 
-        }
-        .btn-l { 
-            flex: 1; padding: 16px; border-radius: var(--radius-xl); font-weight: 700; border: none; cursor: pointer; 
-            color: white; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.06); 
-        }
+        .bottom-action-bar { position: fixed; bottom: calc(75px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; display: flex; gap: 12px; padding: 0 15px; box-sizing: border-box; z-index: 1000; transition: opacity 0.3s; }
+        .btn-l { flex: 1; padding: 16px; border-radius: var(--radius-xl); font-weight: 700; border: none; cursor: pointer; color: white; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
 
         #answer-container { min-height: 150px; width: 100%; margin: 20px 0; position: relative; }
-        #reveal-area { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: center; opacity: 0; visibility: hidden; 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(15px); 
-        }
+        #reveal-area { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; opacity: 0; visibility: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(15px); }
         .show-answer { opacity: 1 !important; visibility: visible !important; transform: translateY(0) !important; }
+        #ans-cn { color: var(--text-main); font-size: 1.5rem; font-weight: 800; }
 
-        #ans-en { color: var(--text-sub); font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; }
-        #ans-cn { color: var(--text-main); font-size: 1.4rem; font-weight: 800; }
-
-        /* 标签流式排版 */
         .history-tags { display: flex; flex-wrap: wrap; gap: 4px; }
         .log-tag { padding: 2px 6px; border-radius: 4px; font-weight: 700; color: white; font-size: 11px; }
         .log-ok { background: var(--success); }
@@ -208,92 +142,79 @@
         .chart-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
         #next-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5000; display: none; }
         
-        @media (max-width: 400px) {
-            .nav .btn { padding: 8px 12px; font-size: 14px; }
-            td, th { padding: 10px 4px; font-size: 13px; }
-        }
+        @media (max-width: 400px) { td, th { padding: 10px 4px; font-size: 13px; } }
     </style>
 </head>
 <body>
 
 <div id="next-overlay" onclick="App.nextCard()"></div>
 
-<header id="main-header">
-    <div class="nav">
-        <button class="btn btn-active" id="nav-select" onclick="App.switchTab('select')">牌组</button>
-        <button class="btn" id="nav-study" onclick="App.switchTab('study')">背诵</button>
-        <button class="btn" id="nav-stats" onclick="App.switchTab('stats')">统计</button>
-    </div>
-</header>
-
 <div class="main-scroll-area">
     <div class="container">
         
         <div id="tab-select" class="section">
             <div class="card">
-                <div class="card-header" style="margin-bottom: 10px;">
-                    <h2>词库管理</h2>
-                    <div style="display:flex; gap:8px">
-                        <button class="btn btn-study" onclick="App.startStudyFlow(false)">顺序背诵</button>
-                        <button class="btn btn-accent" onclick="App.startStudyFlow(true)">乱序挑战</button>
-                    </div>
-                </div>
                 
-                <div class="control-panel">
-                    <div style="font-size: 13px; color: var(--text-sub); font-weight: 600;">导入新词库 (Excel)</div>
-                    <input type="file" id="excelFile" accept=".xlsx, .xls">
-                    
-                    <div style="height: 1px; background: var(--divider); width: 100%; margin: 4px 0;"></div>
-                    
-                    <div class="control-row">
-                        <span style="font-size: 14px; font-weight: 600; white-space: nowrap;">当前展示：</span>
-                        <select id="datasetSelect" onchange="App.changeDataset()"></select>
+                <div class="control-panel" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px;">
+                    <div style="flex: 1; overflow: hidden; display: flex; align-items: center; min-width: 0;">
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" style="width: 100%; font-size: 13px; text-overflow: ellipsis; overflow: hidden;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; max-width: 50%;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-sub);">当前:</span>
+                        <select id="datasetSelect" onchange="App.changeDataset()" style="padding: 8px 24px 8px 10px; width: 100%; font-size: 13px; text-overflow: ellipsis;"></select>
                     </div>
                 </div>
 
                 <div id="deckShelf" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px"></div>
                 
-                <div class="control-panel">
-                    <div class="control-row">
-                        <input type="text" id="rangeInput" placeholder="输入选中范围如 1-50" style="flex:1;">
-                        <button class="btn" style="background: white;" onclick="App.selectByRange()">一键选中</button>
-                    </div>
-                    <div style="height: 1px; background: var(--divider); width: 100%; margin: 2px 0;"></div>
-                    <div class="control-row">
-                        <input type="text" id="deckNameInput" placeholder="为勾选的单词命名牌组" style="flex:1;">
-                        <button class="btn btn-study" onclick="App.createDeck()">建牌组</button>
-                    </div>
+                <div class="control-panel" style="display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 12px;">
+                    <input type="text" id="rangeInput" placeholder="范围如 1-50" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
+                    <button class="btn btn-study" style="padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.processSelection()">选中</button>
+                    
+                    <div style="width: 1px; height: 16px; background: var(--divider); flex-shrink: 0; margin: 0 2px;"></div>
+                    
+                    <input type="text" id="deckNameInput" placeholder="命名牌组" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
+                    <button class="btn" style="background: white; padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.createDeck()">建组</button>
                 </div>
 
                 <div class="table-wrapper">
                     <table>
-                        <thead>
-                            <tr>
-                                <th class="col-check"><input type="checkbox" id="selectAll" onchange="App.handleSelectAll()"></th>
-                                <th class="col-index">序号</th>
-                                <th style="width:35%">单词</th>
-                                <th>中文</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th class="col-check"><input type="checkbox" id="selectAll" onchange="App.handleSelectAll()"></th><th class="col-index">序号</th><th style="width:30%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
                         <tbody id="wordTableBody"></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <div id="tab-study" class="section hidden">
+        <div id="tab-preview" class="section hidden" style="padding-top: 50px;">
+            <button class="btn btn-back" onclick="App.switchTab('select')">返回</button>
+            <div class="card">
+                <div class="card-header" style="flex-direction: column; align-items: stretch; gap: 15px;">
+                    <h2 style="text-align: center;">本次目标 (<span id="preview-count" style="color:var(--primary)">0</span> 词)</h2>
+                    <div style="display:flex; gap:10px; width: 100%;">
+                        <button class="btn btn-study" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(false)">顺序背诵</button>
+                        <button class="btn btn-accent" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(true)">乱序挑战</button>
+                    </div>
+                </div>
+                <div class="table-wrapper" style="margin-top: 20px;">
+                    <table id="previewTable">
+                        <thead><tr><th class="col-index">序号</th><th style="width:35%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
+                        <tbody id="previewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-study" class="section hidden" style="padding-top: 40px;">
             <div class="study-box">
                 <div id="studyProgress" style="font-weight:700; color:var(--text-sub); margin-bottom:12px; font-size: 13px; letter-spacing: 0.5px;"></div>
                 <div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
                 <div class="word-card">
                     <div id="q-index" style="color:var(--text-sub); font-size:14px; font-weight:700">#--</div>
-                    <div id="q-word" class="q-word">Word</div>
+                    <div id="q-word" class="q-word" onclick="App.replayAudio()" title="点击重新发音">Word</div>
                     <div id="q-pos">词性</div>
                     <div id="answer-container">
-                        <div id="reveal-area">
-                            <div id="ans-en">English</div>
-                            <div id="ans-cn">中文释义</div>
-                        </div>
+                        <div id="reveal-area"><div id="ans-en">English</div><div id="ans-cn">中文释义</div></div>
                     </div>
                 </div>
             </div>
@@ -303,71 +224,73 @@
             </div>
         </div>
 
-        <div id="tab-stats" class="section hidden">
-            <div class="card card-rose">
-                <div class="card-header">
+        <div id="tab-stats" class="section hidden" style="padding-top: 20px;">
+            <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()">
+                <div class="card-header" style="margin-bottom:0; justify-content: center;">
                     <h2 id="mistake-title">今日错题</h2>
-                    <button class="btn btn-active" id="mistake-btn" onclick="App.enterMistakeDetail()">查看消灭</button>
                 </div>
             </div>
-            <div class="card card-blue">
-                <div class="card-header">
-                    <h2>厚积薄发 (全量历程)</h2><button class="btn btn-active" onclick="App.enterAccumulationView()">进入</button>
+            <div class="card card-blue clickable-card" onclick="App.enterAccumulationView()">
+                <div class="card-header" style="margin-bottom:0; justify-content: center;">
+                    <h2>厚积薄发</h2>
                 </div>
             </div>
-            <div class="card card-emerald">
-                <div class="card-header">
-                    <h2>日积月累 (打卡报表)</h2><button class="btn btn-active" onclick="App.switchTab('daily-menu')">进入</button>
+            <div class="card card-emerald clickable-card" onclick="App.switchTab('daily-menu')">
+                <div class="card-header" style="margin-bottom:0; justify-content: center;">
+                    <h2>日积月累</h2>
+                </div>
+            </div>
+            <div class="card card-amber clickable-card" onclick="App.enterDataManagement()">
+                <div class="card-header" style="margin-bottom:0; justify-content: center;">
+                    <h2>数据管理</h2>
                 </div>
             </div>
         </div>
 
         <div id="tab-daily-menu" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('stats')">← 返回</button>
-            <div class="card card-blue"><div class="card-header" style="margin-bottom:0;"><h2>平均背诵量趋势图</h2><button class="btn btn-active" onclick="App.enterLearningProgress()">进入</button></div></div>
-            <div class="card card-emerald"><div class="card-header" style="margin-bottom:0;"><h2>每日背诵流水详单</h2><button class="btn btn-active" onclick="App.enterDailyTableDetail()">进入</button></div></div>
+            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
+            <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()">
+                <div class="card-header" style="margin-bottom:0; justify-content: center;">
+                    <h2>背诵趋势图</h2>
+                </div>
+            </div>
+            <div class="card card-emerald clickable-card" onclick="App.enterDailyTableDetail()">
+                <div class="card-header" style="margin-bottom:0; justify-content: center;">
+                    <h2>每日背诵流水表</h2>
+                </div>
+            </div>
         </div>
 
         <div id="tab-learning-progress" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('daily-menu')">← 返回</button>
+            <button class="btn btn-back" onclick="App.switchTab('daily-menu')">返回</button>
             <div class="card">
                 <h2 style="margin-bottom: 20px; font-weight:700;">背诵趋势</h2>
                 <div class="chart-controls">
                     <button class="btn bin-btn" id="bin-1" onclick="App.renderBinnedChart(1)">日</button>
                     <button class="btn bin-btn" id="bin-7" onclick="App.renderBinnedChart(7)">周</button>
                     <button class="btn bin-btn" id="bin-30" onclick="App.renderBinnedChart(30)">月</button>
+                    <button class="btn bin-btn" id="bin-90" onclick="App.renderBinnedChart(90)">季</button>
+                    <button class="btn bin-btn" id="bin-365" onclick="App.renderBinnedChart(365)">年</button>
                 </div>
                 <div style="height:350px; width: 100%;"><canvas id="avgChart"></canvas></div>
             </div>
         </div>
 
         <div id="tab-daily-table" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('daily-menu')">← 返回</button>
+            <button class="btn btn-back" onclick="App.switchTab('daily-menu')">返回</button>
             <div class="card">
-                <div class="card-header"><h2>背诵详单</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
-                <div class="table-wrapper">
-                    <table id="dailyTable">
-                        <thead><tr><th>日期</th><th style="width:40px;">数量</th><th style="width:40px;">认识</th><th style="width:50px;">不认识</th></tr></thead>
-                        <tbody id="dailyBody"></tbody>
-                    </table>
-                </div>
+                <div class="card-header"><h2>背诵详情</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
+                <div class="table-wrapper"><table id="dailyTable"><thead><tr><th>日期</th><th style="width:40px;">数量</th><th style="width:40px;">认识</th><th style="width:50px;">不认识</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
             </div>
         </div>
 
         <div id="tab-accumulation-detail" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('stats')">← 返回</button>
+            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
             <div class="card">
-                <div class="card-header"><h2>全量首背历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
+                <div class="card-header"><h2>历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
                 <div class="table-wrapper">
                     <table id="accTable">
-                        <thead>
-                            <tr>
-                                <th class="col-index" onclick="App.sortAcc('id')">序号⇅</th>
-                                <th style="width:30%">单词</th>
-                                <th>历程记录</th>
-                                <th style="width:40px" onclick="App.sortAcc('f')">错⇅</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">次数</th></tr></thead>
                         <tbody id="accBody"></tbody>
                     </table>
                 </div>
@@ -375,20 +298,39 @@
         </div>
 
         <div id="tab-mistake-detail" class="section hidden" style="padding-top: 50px;">
-            <button class="btn btn-back" onclick="App.switchTab('stats')">← 返回</button>
+            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
             <div class="card card-rose">
                 <h2 id="mistake-detail-title" style="margin-bottom: 15px;">待消灭错题</h2>
-                <div class="table-wrapper">
-                    <table>
-                        <thead><tr><th class="col-index">序号</th><th style="width:40%">单词</th><th>释义</th></tr></thead>
-                        <tbody id="mistakeBody"></tbody>
-                    </table>
-                </div>
+                <div class="table-wrapper"><table><thead><tr><th class="col-index">序号</th><th style="width:40%">单词</th><th>释义</th></tr></thead><tbody id="mistakeBody"></tbody></table></div>
                 <button class="btn btn-active" style="width:100%; padding:16px; margin-top:20px; font-size:16px;" onclick="App.retryMistakesFlow()">再来一遍！</button>
             </div>
         </div>
 
+        <div id="tab-data-management" class="section hidden" style="padding-top: 50px;">
+            <button class="btn btn-back" onclick="App.switchTab('stats')">返回</button>
+            <div class="card card-amber">
+                <h2 style="margin-bottom: 20px; font-weight:700;">已导入的数据源</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>数据源名称</th><th style="width:40px;">单词</th><th style="width:50px; text-align:right;">操作</th></tr></thead>
+                        <tbody id="dataManagementBody"></tbody>
+                    </table>
+                </div>
+                <div style="margin-top:30px; border-top: 1px dashed var(--divider); padding-top: 20px; text-align: center;">
+                    <h3 style="color: var(--error); margin-top: 0; font-size: 16px;">危险操作</h3>
+                    <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 15px;">彻底清空所有词库、打卡记录与应用缓存。操作不可逆！</p>
+                    <button class="btn btn-danger" style="width: 100%; padding: 14px; border-radius: var(--radius-lg);" onclick="App.safeClearData()">清空所有数据</button>
+                </div>
+            </div>
+        </div>
+
     </div>
+</div> 
+
+<div id="bottom-nav">
+    <button class="nav-tab nav-tab-active" id="nav-select" onclick="App.switchTab('select')">牌组</button>
+    <button class="nav-tab" id="nav-study" onclick="App.switchTab('study')">背诵</button>
+    <button class="nav-tab" id="nav-stats" onclick="App.switchTab('stats')">统计</button>
 </div>
 
 <script>
@@ -412,8 +354,12 @@ const App = {
         logs: JSON.parse(localStorage.getItem('es_logs') || '{}'),
         decks: JSON.parse(localStorage.getItem('es_decks') || '{}'),
         currentDataset: localStorage.getItem('es_current_dataset') || '',
+        currentDeck: null, 
         currentPracticeList: [], currentIndex: 0, isAnswerStep: false, isReviewMode: false, myChart: null, accSort: { key: 'id', dir: 1 }, tempMistakes: [], audioUnlocked: false
     },
+    
+    deckTimer: null,
+    isLongPress: false,
 
     init: function() {
         if (this.state.masterData.length > 0) { 
@@ -421,16 +367,34 @@ const App = {
         }
         document.getElementById('excelFile').addEventListener('change', (e) => this.handleFileUpload(e));
         window.onkeydown = (e) => this.handleKeydown(e);
+        this.updateMistakesUI(); 
     },
 
     unlockAudio: function() {
         if (this.state.audioUnlocked) return;
         const msg = new SpeechSynthesisUtterance(''); msg.volume = 0; window.speechSynthesis.speak(msg);
+        const dummyAudio = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');
+        dummyAudio.play().catch(e => {});
         this.state.audioUnlocked = true;
     },
 
     speakWord: function(word) {
-        try { window.speechSynthesis.cancel(); const msg = new SpeechSynthesisUtterance(word); msg.lang = 'es-ES'; msg.rate = 0.9; window.speechSynthesis.speak(msg); } catch (e) {}
+        try { 
+            const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`;
+            const audio = new Audio(url);
+            audio.play().catch(e => {
+                window.speechSynthesis.cancel(); 
+                const msg = new SpeechSynthesisUtterance(word); 
+                msg.lang = 'es-ES'; msg.rate = 0.9; 
+                window.speechSynthesis.speak(msg);
+            });
+        } catch (e) {}
+    },
+    
+    replayAudio: function() {
+        if (this.state.currentPracticeList && this.state.currentPracticeList[this.state.currentIndex]) {
+            this.speakWord(this.state.currentPracticeList[this.state.currentIndex].word);
+        }
     },
 
     initDatasets: function() {
@@ -445,6 +409,8 @@ const App = {
     changeDataset: function() {
         this.state.currentDataset = document.getElementById('datasetSelect').value;
         localStorage.setItem('es_current_dataset', this.state.currentDataset);
+        this.state.currentDeck = null; 
+        this.renderDeckShelf();
         this.renderWordTableForCurrentDataset();
     },
 
@@ -468,41 +434,51 @@ const App = {
         this.renderWordTable(this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset));
     },
 
-    // 优化4：修改输出渲染列
     renderWordTable: function(list) {
-        document.getElementById('wordTableBody').innerHTML = list.map(i => `
-            <tr>
-                <td class="col-check"><input type="checkbox" class="word-check" data-id="${Utils.escapeHTML(i.id)}"></td>
-                <td class="col-index">${Utils.escapeHTML(i.id)}</td>
-                <td><strong>${Utils.escapeHTML(i.word)}</strong></td>
-                <td>${Utils.escapeHTML(i.cn)}</td>
-            </tr>`).join(''); 
+        document.getElementById('wordTableBody').innerHTML = list.map(i => `<tr><td class="col-check"><input type="checkbox" class="word-check" data-id="${Utils.escapeHTML(i.id)}"></td><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td><span class="pos-badge">${Utils.escapeHTML(i.pos)}</span></td><td>${Utils.escapeHTML(i.cn)}</td></tr>`).join(''); 
     },
 
-    getTodayMistakes: function() {
-        const todayStr = Utils.getLocalDateString(Date.now());
-        return this.state.masterData.filter(i => {
-            const h = this.state.logs[i.id] || []; if (h.length === 0) return false;
-            const todayLogs = h.filter(l => Utils.getLocalDateString(l.time) === todayStr); if (todayLogs.length === 0) return false;
-            return !todayLogs[todayLogs.length - 1].res; 
-        });
+    selectByRange: function() { 
+        const i = document.getElementById('rangeInput').value.trim(); 
+        if(!i) return;
+        const ids = new Set(); 
+        i.split(/[,，]/).forEach(r => { 
+            if(r.includes('-')) { const [s, e] = r.split('-').map(n => parseInt(n.trim())); for(let x=s; x<=e; x++) ids.add(String(x)); } 
+            else ids.add(r.trim()); 
+        }); 
+        document.querySelectorAll('.word-check').forEach(cb => cb.checked = ids.has(cb.dataset.id)); 
     },
 
-    updateMistakesUI: function() {
-        const bad = this.getTodayMistakes();
-        const title = document.getElementById('mistake-title'), btn = document.getElementById('mistake-btn');
-        if (bad.length === 0) { title.innerHTML = `今日错题 <span style="color:var(--success); font-size:14px;">(已清空)</span>`; btn.style.display = "none"; } 
-        else { title.innerHTML = `今日错题 <span style="color:var(--error); font-size:14px;">(${bad.length} 词待消灭)</span>`; btn.style.display = "block"; }
+    processSelection: function() {
+        this.selectByRange(); 
+        const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
+        if (ids.length === 0) return alert("输入范围或勾选单词！");
+        this.previewSelected(ids);
+    },
+
+    previewSelected: function(ids) {
+        const currentViewData = this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset);
+        this.state.currentPracticeList = currentViewData.filter(item => ids.includes(item.id));
+        
+        document.getElementById('preview-count').innerText = this.state.currentPracticeList.length;
+        document.getElementById('previewBody').innerHTML = this.state.currentPracticeList.map(i => `
+            <tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td><span class="pos-badge">${Utils.escapeHTML(i.pos)}</span></td><td>${Utils.escapeHTML(i.cn)}</td></tr>`).join('');
+            
+        this.switchTab('preview');
     },
 
     startStudyFlow: function(isShuffle) {
         this.unlockAudio(); 
-        const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id);
-        if (ids.length === 0) return alert("请先在列表中勾选要背诵的单词！");
-        this.state.currentPracticeList = this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset).filter(item => ids.includes(item.id));
-        if (isShuffle) this.state.currentPracticeList.sort(() => Math.random() - 0.5);
+        if (this.state.currentPracticeList.length === 0) return alert("待背诵列表为空！");
+        
+        let list = [...this.state.currentPracticeList]; 
+        if (isShuffle) list.sort(() => Math.random() - 0.5);
+        
+        this.state.currentPracticeList = list;
         this.state.isReviewMode = false; this.state.currentIndex = 0;
-        this.switchTab('study'); this.renderCard();
+        
+        this.switchTab('study'); 
+        this.renderCard();
     },
 
     renderCard: function() {
@@ -539,6 +515,126 @@ const App = {
         } else { this.switchTab('stats'); }
     },
 
+    getTodayMistakes: function() {
+        const todayStr = Utils.getLocalDateString(Date.now());
+        return this.state.masterData.filter(i => {
+            const h = this.state.logs[i.id] || []; if (h.length === 0) return false;
+            const todayLogs = h.filter(l => Utils.getLocalDateString(l.time) === todayStr); if (todayLogs.length === 0) return false;
+            return !todayLogs[todayLogs.length - 1].res; 
+        });
+    },
+
+    updateMistakesUI: function() {
+        const bad = this.getTodayMistakes();
+        const title = document.getElementById('mistake-title');
+        const card = document.getElementById('mistake-card');
+        if (bad.length === 0) { 
+            title.innerHTML = `今日错题 <span style="color:var(--success); font-size:14px; font-weight:600;">(已清空)</span>`; 
+            if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.6"; }
+        } else { 
+            title.innerHTML = `今日错题 <span style="color:var(--error); font-size:14px; font-weight:600;">(${bad.length} 词待消灭)</span>`; 
+            if(card) { card.style.pointerEvents = "auto"; card.style.opacity = "1"; }
+        }
+    },
+
+    switchTab: function(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden')); 
+        document.getElementById('tab-' + id).classList.remove('hidden');
+        
+        let activeId = id;
+        if (id === 'preview') activeId = 'select';
+        if (['mistake-detail', 'daily-menu', 'learning-progress', 'daily-table', 'accumulation-detail', 'data-management'].includes(id)) activeId = 'stats';
+        
+        document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('nav-tab-active')); 
+        const activeBtn = document.getElementById('nav-' + activeId); 
+        if (activeBtn) activeBtn.classList.add('nav-tab-active'); 
+
+        if(id === 'stats') this.updateMistakesUI();
+        document.querySelector('.main-scroll-area').scrollTop = 0; 
+    },
+
+    handleKeydown: function(e) {
+        if (document.getElementById('tab-study').classList.contains('hidden')) return;
+        if (e.key.toLowerCase() === 'j' && !this.state.isAnswerStep) this.handleEvaluation(true);
+        if (e.key.toLowerCase() === 'k' && !this.state.isAnswerStep) this.handleEvaluation(false);
+        if ((e.key === ' ' || e.key === 'Enter') && this.state.isAnswerStep) this.nextCard();
+    },
+
+    deckPressStart: function(k) {
+        this.isLongPress = false;
+        this.deckTimer = setTimeout(() => {
+            this.isLongPress = true;
+            if(confirm(`确定要彻底删除牌组 [${k}] 吗？`)) {
+                delete this.state.decks[k];
+                if(this.state.currentDeck === k) this.state.currentDeck = null;
+                localStorage.setItem('es_decks', JSON.stringify(this.state.decks));
+                this.renderDeckShelf();
+                this.renderWordTableForCurrentDataset(); 
+            }
+        }, 650); 
+    },
+    
+    deckPressEnd: function() {
+        clearTimeout(this.deckTimer);
+    },
+
+    renderDeckShelf: function() { 
+        document.getElementById('deckShelf').innerHTML = Object.keys(this.state.decks).map(k => {
+            const activeClass = (k === this.state.currentDeck) ? 'btn-active' : '';
+            return `<button class="btn ${activeClass}" style="font-size:12px; padding:6px 12px; user-select: none; -webkit-user-select: none;" 
+                    onmousedown="App.deckPressStart('${Utils.escapeHTML(k)}')" 
+                    onmouseup="App.deckPressEnd()" 
+                    onmouseleave="App.deckPressEnd()" 
+                    ontouchstart="App.deckPressStart('${Utils.escapeHTML(k)}')" 
+                    ontouchend="App.deckPressEnd()"
+                    onclick="App.loadDeck('${Utils.escapeHTML(k)}')">${Utils.escapeHTML(k)}</button>`;
+        }).join(''); 
+    },
+    
+    loadDeck: function(n) { 
+        if(this.isLongPress) {
+            this.isLongPress = false; 
+            return;
+        }
+        if (this.state.currentDeck === n) {
+            this.state.currentDeck = null;
+            this.renderDeckShelf();
+            this.renderWordTableForCurrentDataset();
+        } else {
+            this.state.currentDeck = n;
+            this.renderDeckShelf();
+            this.renderWordTable(this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset).filter(i => this.state.decks[n].includes(i.id))); 
+        }
+    },
+    
+    createDeck: function() { 
+        this.selectByRange(); 
+        const n = document.getElementById('deckNameInput').value.trim(), ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
+        if(!n || ids.length === 0) return alert("请命名牌组并输入范围或勾选单词！"); 
+        this.state.decks[n] = ids; localStorage.setItem('es_decks', JSON.stringify(this.state.decks)); this.renderDeckShelf(); 
+        document.getElementById('deckNameInput').value = ''; 
+    },
+    handleSelectAll: function() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.word-check').forEach(cb => cb.checked = c); },
+
+    enterMistakeDetail: function() {
+        const bad = this.getTodayMistakes(); if(bad.length === 0) return;
+        document.getElementById('mistakeBody').innerHTML = bad.map(i => `<tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td>${Utils.escapeHTML(i.cn)}</td></tr>`).join('');
+        this.state.tempMistakes = JSON.parse(JSON.stringify(bad)); 
+        this.switchTab('mistake-detail');
+    },
+    
+    retryMistakesFlow: function() {
+        this.unlockAudio(); 
+        this.state.currentPracticeList = this.state.tempMistakes.sort(()=>Math.random()-0.5); 
+        this.state.isReviewMode = true; this.state.currentIndex = 0; 
+        this.switchTab('study'); 
+        this.state.isAnswerStep = false; 
+        document.getElementById('reveal-area').classList.remove('show-answer'); 
+        document.getElementById('action-btns').style.opacity = "1"; 
+        document.getElementById('action-btns').style.pointerEvents = "auto"; 
+        this.renderCard();
+    },
+
     getDailyLogStats: function() {
         const stats = {};
         Object.keys(this.state.logs).forEach(id => {
@@ -549,68 +645,76 @@ const App = {
         }); return stats;
     },
 
+    // 优化3：红绿堆叠柱状图
     renderBinnedChart: function(binDays) {
         document.querySelectorAll('.bin-btn').forEach(b => b.classList.remove('btn-active')); document.getElementById(`bin-${binDays}`).classList.add('btn-active');
         const allTs = []; Object.values(this.state.logs).forEach(wordLogs => wordLogs.forEach(l => { if(!l.isReview) allTs.push(l.time); }));
         if(allTs.length === 0) return;
-        const msPerDay = 24 * 60 * 60 * 1000; const currEnd = Utils.getStartOfDay(Date.now()) + msPerDay - 1; let firstDate = Utils.getStartOfDay(Math.min(...allTs));
-        if (binDays === 1) { const minDate = Utils.getStartOfDay(currEnd - 13 * msPerDay); if (firstDate > minDate) firstDate = minDate; }
-        const labels = [], values = []; let currentBinEnd = currEnd;
-        while(currentBinEnd >= firstDate) {
-            let currentBinStart = currentBinEnd - (binDays * msPerDay) + 1, count = 0;
-            Object.values(this.state.logs).forEach(wordLogs => { wordLogs.forEach(l => { if(!l.isReview && l.time >= currentBinStart && l.time <= currentBinEnd) count++; }); });
+        
+        let numBins = 14; 
+        if (binDays === 7) numBins = 4;        
+        if (binDays === 30) numBins = 3;       
+        if (binDays === 90) numBins = 4;       
+        if (binDays === 365) numBins = 4;      
+
+        const msPerDay = 24 * 60 * 60 * 1000; 
+        const currEnd = Utils.getStartOfDay(Date.now()) + msPerDay - 1; 
+        
+        const labels = [], knownVals = [], unknownVals = []; 
+        for (let i = 0; i < numBins; i++) {
+            let currentBinEnd = currEnd - (i * binDays * msPerDay);
+            let currentBinStart = currentBinEnd - (binDays * msPerDay) + 1;
+            
+            let kCount = 0, uCount = 0;
+            Object.values(this.state.logs).forEach(wordLogs => { 
+                wordLogs.forEach(l => { 
+                    if(!l.isReview && l.time >= currentBinStart && l.time <= currentBinEnd) {
+                        if(l.res) kCount++; else uCount++;
+                    }
+                }); 
+            });
+            
             const sd = new Date(currentBinStart), ed = new Date(currentBinEnd);
-            labels.unshift(binDays === 1 ? `${sd.getMonth()+1}/${sd.getDate()}` : `${sd.getMonth()+1}/${sd.getDate()}-${ed.getMonth()+1}/${ed.getDate()}`);
-            values.unshift((count / binDays).toFixed(1)); currentBinEnd = currentBinStart - 1;
+            let labelStr = '';
+            if (binDays === 1) {
+                labelStr = `${sd.getMonth()+1}/${sd.getDate()}`;
+            } else if (binDays === 365) {
+                labelStr = `${sd.getFullYear()}年`;
+            } else {
+                labelStr = `${sd.getMonth()+1}/${sd.getDate()}-${ed.getMonth()+1}/${ed.getDate()}`;
+            }
+            
+            labels.unshift(labelStr);
+            knownVals.unshift((kCount / binDays).toFixed(1)); 
+            unknownVals.unshift((uCount / binDays).toFixed(1)); 
         }
-        const ctx = document.getElementById('avgChart').getContext('2d'); if(this.state.myChart) this.state.myChart.destroy();
-        this.state.myChart = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: '日均', data: values, backgroundColor: '#8B5CF6', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false } });
+
+        const ctx = document.getElementById('avgChart').getContext('2d'); 
+        if(this.state.myChart) this.state.myChart.destroy();
+        this.state.myChart = new Chart(ctx, { 
+            type: 'bar', 
+            data: { 
+                labels, 
+                datasets: [
+                    { label: '认识 (日均)', data: knownVals, backgroundColor: '#10B981' }, // 绿
+                    { label: '不认识 (日均)', data: unknownVals, backgroundColor: '#F43F5E' } // 红
+                ] 
+            }, 
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true }, // X轴堆叠
+                    y: { stacked: true }  // Y轴堆叠
+                }
+            } 
+        });
     },
 
-    switchTab: function(id) {
-        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden')); document.getElementById('tab-' + id).classList.remove('hidden');
-        const isSub = id.includes('detail') || id.includes('progress') || id.includes('table') || id.includes('menu') || id.includes('management');
-        document.getElementById('main-header').style.display = isSub ? 'none' : 'flex';
-        if (!isSub) { document.querySelectorAll('.nav .btn').forEach(btn => btn.classList.remove('btn-active')); const activeBtn = document.getElementById('nav-' + id); if (activeBtn) activeBtn.classList.add('btn-active'); }
-        if(id === 'stats') this.updateMistakesUI();
-        document.querySelector('.main-scroll-area').scrollTop = 0; // 切换 Tab 时自动滚回顶部
-    },
-
-    handleKeydown: function(e) {
-        if (document.getElementById('tab-study').classList.contains('hidden')) return;
-        if (e.key.toLowerCase() === 'j' && !this.state.isAnswerStep) this.handleEvaluation(true);
-        if (e.key.toLowerCase() === 'k' && !this.state.isAnswerStep) this.handleEvaluation(false);
-        if ((e.key === ' ' || e.key === 'Enter') && this.state.isAnswerStep) this.nextCard();
-    },
-
-    renderDeckShelf: function() { document.getElementById('deckShelf').innerHTML = Object.keys(this.state.decks).map(k => `<button class="btn" style="font-size:12px; padding:6px 12px" onclick="App.loadDeck('${Utils.escapeHTML(k)}')">${Utils.escapeHTML(k)}</button>`).join(''); },
-    loadDeck: function(n) { this.renderWordTable(this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset).filter(i => this.state.decks[n].includes(i.id))); },
-    createDeck: function() { 
-        const n = document.getElementById('deckNameInput').value, ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
-        if(!n || ids.length === 0) return alert("请命名牌组并至少勾选一个词！"); 
-        this.state.decks[n] = ids; localStorage.setItem('es_decks', JSON.stringify(this.state.decks)); this.renderDeckShelf(); 
-    },
-    selectByRange: function() { 
-        const i = document.getElementById('rangeInput').value, ids = new Set(); 
-        i.split(/[,，]/).forEach(r => { if(r.includes('-')) { const [s, e] = r.split('-').map(n => parseInt(n.trim())); for(let x=s; x<=e; x++) ids.add(String(x)); } else ids.add(r.trim()); }); 
-        document.querySelectorAll('.word-check').forEach(cb => cb.checked = ids.has(cb.dataset.id)); 
-    },
-    handleSelectAll: function() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.word-check').forEach(cb => cb.checked = c); },
-
-    enterMistakeDetail: function() {
-        const bad = this.getTodayMistakes(); if(bad.length === 0) return;
-        document.getElementById('mistakeBody').innerHTML = bad.map(i => `<tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td>${Utils.escapeHTML(i.cn)}</td></tr>`).join('');
-        document.getElementById('mistake-detail-title').innerText = `待消灭错题 (${bad.length} 词)`; this.state.tempMistakes = JSON.parse(JSON.stringify(bad)); this.switchTab('mistake-detail');
-    },
-    retryMistakesFlow: function() {
-        this.state.currentPracticeList = this.state.tempMistakes.sort(()=>Math.random()-0.5); this.state.isReviewMode = true; this.state.currentIndex = 0; 
-        this.switchTab('study'); this.state.isAnswerStep = false; document.getElementById('reveal-area').classList.remove('show-answer'); document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto"; this.renderCard();
-    },
     enterAccumulationView: function() { this.switchTab('accumulation-detail'); this.renderAccTable(); },
     renderAccTable: function() {
         let stats = this.state.masterData.map(i => ({ ...i, h: (this.state.logs[i.id] || []).filter(x => !x.isReview), f: (this.state.logs[i.id] || []).filter(x => !x.isReview && !x.res).length })).filter(i => i.h.length > 0);
         stats.sort((a,b) => this.state.accSort.key==='id' ? (parseInt(a.id)-parseInt(b.id))*this.state.accSort.dir : (a.f-b.f)*this.state.accSort.dir);
-        // 优化5：将历程标签包装进 div 中利用 Flex 自动折行
         document.getElementById('accBody').innerHTML = stats.map(i => `<tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td><div class="history-tags">${i.h.map((x,idx)=>`<span class="log-tag ${x.res?'log-ok':'log-no'}">${idx+1}</span>`).join('')}</div></td><td><b style="color:var(--error)">${i.f}</b></td></tr>`).join('');
     },
     sortAcc: function(k) { if(this.state.accSort.key===k) this.state.accSort.dir*=-1; else {this.state.accSort.key=k; this.state.accSort.dir=1;} this.renderAccTable(); },
@@ -619,8 +723,33 @@ const App = {
         document.getElementById('dailyBody').innerHTML = sorted.map(d => `<tr><td>${d.substring(5)}</td><td>${stats[d].c}</td><td style="color:var(--success)">${stats[d].k}</td><td style="color:var(--error)">${stats[d].u}</td></tr>`).join(''); 
     },
     enterLearningProgress: function() { this.switchTab('learning-progress'); setTimeout(()=>this.renderBinnedChart(1), 100); },
-    exportDailyDetail: function() { /* 保留导出逻辑... */ },
-    exportAccTable: function() { /* 保留导出逻辑... */ }
+    enterDataManagement: function() {
+        this.switchTab('data-management');
+        const sources = [...new Set(this.state.masterData.map(i => i.source || '未命名'))];
+        const body = document.getElementById('dataManagementBody');
+        if (sources.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-sub)">暂无任何导入数据</td></tr>';
+            return;
+        }
+        body.innerHTML = sources.map(s => {
+            const count = this.state.masterData.filter(i => (i.source || '未命名') === s).length;
+            return `<tr><td><strong>${Utils.escapeHTML(s)}</strong></td><td>${count}</td><td style="text-align:right;"><button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px" onclick="App.deleteDataset('${Utils.escapeHTML(s)}')">删除</button></td></tr>`;
+        }).join('');
+    },
+    deleteDataset: function(source) {
+        if(confirm(`确定要彻底删除数据包 [${source}] 吗？\n\n这会删除里面的所有单词和关联记录！`)) {
+            this.state.masterData = this.state.masterData.filter(i => (i.source || '未命名') !== source);
+            localStorage.setItem('es_master_data', JSON.stringify(this.state.masterData));
+            if (this.state.currentDataset === source) localStorage.removeItem('es_current_dataset');
+            alert("删除成功！"); location.reload();
+        }
+    },
+    safeClearData: function() { 
+        if(confirm("危险：将清除所有本地数据（词库与背诵记录），是否继续？")) { localStorage.clear(); location.reload(); } 
+    },
+
+    exportDailyDetail: function() { /* 导出功能保留 */ },
+    exportAccTable: function() { /* 导出功能保留 */ }
 };
 
 window.onload = () => App.init();
