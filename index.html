@@ -14,6 +14,10 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap');
 
+        /* 核心修复 1：彻底全局消灭安卓端的蓝色点击高亮和选中边框 */
+        * { -webkit-tap-highlight-color: transparent !important; }
+        *:focus { outline: none !important; }
+
         :root { 
             --bg: #F8FAFC; 
             --surface: #FFFFFF; 
@@ -63,7 +67,7 @@
             flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; 
             height: 100%; color: #000000; font-weight: 700; font-size: 16px; 
             cursor: pointer; transition: color 0.2s; background: transparent; border: none; outline: none;
-            -webkit-tap-highlight-color: transparent; letter-spacing: 0.5px;
+            letter-spacing: 0.5px;
         }
         .nav-tab:active { transform: scale(0.95); }
         .nav-tab-active { color: var(--primary); } 
@@ -81,7 +85,7 @@
 
         .card { background: var(--surface); padding: 20px 16px; border-radius: var(--radius-xl); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 24px; border: 1px solid var(--surface); }
         
-        .clickable-card { cursor: pointer; transition: transform 0.1s; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .clickable-card { cursor: pointer; transition: transform 0.1s; user-select: none; }
         .clickable-card:active { transform: scale(0.96); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         
         .card-rose { background: #FFF1F2; border-color: #FFE4E6; box-shadow: none; }
@@ -96,7 +100,7 @@
 
         .control-panel { display: flex; flex-direction: column; gap: 12px; background: var(--surface-variant); padding: 12px 14px; border-radius: var(--radius-lg); margin: 20px 0; }
         
-        input[type="text"], select { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 14px; font-family: inherit; font-size: 14px; color: var(--text-main); outline: none; box-sizing: border-box; width: 100%; }
+        input[type="text"], select { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 14px; font-family: inherit; font-size: 14px; color: var(--text-main); box-sizing: border-box; width: 100%; }
         input[type="file"] { display: none; }
         .upload-label { display: block; background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 12px; color: var(--text-main); font-weight: 600; cursor: pointer; text-align: center; font-size: 13px; margin: 0; white-space: nowrap;}
         
@@ -119,7 +123,12 @@
         .study-box { max-width: 500px; margin: 0 auto; text-align: center; padding-top: 10px;}
         .word-card { background: transparent; padding: 20px 10px; display: flex; flex-direction: column; align-items: center;}
         
-        .q-word { font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; color: var(--text-main); margin: 10px 0; letter-spacing: -1px; line-height: 1.1; word-break: break-word; cursor: pointer; transition: transform 0.1s; user-select: none; -webkit-tap-highlight-color: transparent;}
+        /* 核心修复 2：将单词的 z-index 提升至 5001，确保它能刺透点击全屏下一题的透明遮罩 (z-index: 5000) */
+        .q-word { 
+            font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; color: var(--text-main); margin: 10px 0; 
+            letter-spacing: -1px; line-height: 1.1; word-break: break-word; cursor: pointer; transition: transform 0.1s; user-select: none;
+            position: relative; z-index: 5001; 
+        }
         .q-word:active { transform: scale(0.95); color: var(--primary); }
         
         #q-pos { color: var(--accent-text); background: var(--accent-bg); font-weight: 700; font-size: 1.15rem; padding: 6px 16px; border-radius: var(--radius-md); display: inline-block; margin-top: 8px; }
@@ -142,6 +151,7 @@
         .log-no { background: var(--error); }
 
         .chart-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        /* 这里的遮罩层层级是 5000 */
         #next-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5000; display: none; }
         
         @media (max-width: 400px) { td, th { padding: 10px 4px; font-size: 13px; } }
@@ -212,7 +222,7 @@
                 </div>
             </div>
             <div class="bottom-action-bar" id="action-btns">
-                <button class="btn-l" style="background:var(--error)" onclick="App.handleEvaluation(false)">忘记 (K)</button>
+                <button class="btn-l" style="background:var(--error)" onclick="App.handleEvaluation(false)">不认识 (K)</button>
                 <button class="btn-l" style="background:var(--success)" onclick="App.handleEvaluation(true)">认识 (J)</button>
             </div>
         </div>
@@ -332,7 +342,6 @@ const App = {
         currentDataset: localStorage.getItem('es_current_dataset') || '',
         currentDeck: null, 
         
-        // --- 核心优化：进度持久化状态 ---
         currentPracticeList: JSON.parse(localStorage.getItem('es_practice_list') || '[]'),
         currentIndex: parseInt(localStorage.getItem('es_practice_index') || '0', 10),
         isReviewMode: localStorage.getItem('es_practice_mode') === 'true',
@@ -360,23 +369,19 @@ const App = {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        // --- 核心优化：启动时自动检测并恢复未完成的背诵进度 ---
         if (this.state.currentPracticeList && this.state.currentPracticeList.length > 0 && this.state.currentIndex < this.state.currentPracticeList.length) {
             this.switchTab('study');
-            // 初始化复原背诵卡片的界面状态，防止上一次是在看答案时退出的
             this.state.isAnswerStep = false; 
             document.getElementById('reveal-area').classList.remove('show-answer'); 
             document.getElementById('action-btns').style.opacity = "1"; 
             document.getElementById('action-btns').style.pointerEvents = "auto"; 
             this.renderCard();
         } else {
-            // 没有待办进度，清空任何残留缓存，默认回到主页
             this.clearPracticeState();
             this.switchTab('select');
         }
     },
 
-    // 管理本地进度的助手函数
     savePracticeState: function() {
         localStorage.setItem('es_practice_list', JSON.stringify(this.state.currentPracticeList));
         localStorage.setItem('es_practice_index', this.state.currentIndex);
@@ -522,7 +527,6 @@ const App = {
         this.state.isReviewMode = false; 
         this.state.currentIndex = 0;
         
-        // 保存新开启的背诵进度
         this.savePracticeState();
         
         this.switchTab('study'); 
@@ -559,20 +563,17 @@ const App = {
         this.state.currentIndex++;
         
         if (this.state.currentIndex < this.state.currentPracticeList.length) {
-            // 每背完一个，就向本地缓存更新一次进度索引
             this.savePracticeState(); 
             this.state.isAnswerStep = false; document.getElementById('reveal-area').classList.remove('show-answer');
             document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
-            // 整个列表背诵结束，清空进度，保证下次正常加载
             this.clearPracticeState();
             const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
             this.switchTab(fallbackTarget);
         }
     },
 
-    // 性能大优化：使用字典查找并倒序匹配日志，把这块性能提升了几十倍
     getTodayMistakes: function() {
         const todayStr = Utils.getLocalDateString(Date.now());
         const mistakes = [];
@@ -581,11 +582,10 @@ const App = {
             const h = this.state.logs[id];
             if (!h || h.length === 0) continue;
             
-            // 倒序寻找最新的一条记录，只要找到今天的，立刻中断循环
             for (let i = h.length - 1; i >= 0; i--) {
                 if (Utils.getLocalDateString(h[i].time) === todayStr) {
                     if (!h[i].res) {
-                        const wordObj = this.state.masterMap.get(id); // O(1) 字典秒查找
+                        const wordObj = this.state.masterMap.get(id); 
                         if (wordObj) mistakes.push(wordObj);
                     }
                     break; 
@@ -722,7 +722,6 @@ const App = {
         this.state.isReviewMode = true; 
         this.state.currentIndex = 0; 
         
-        // 保存错题重背进度
         this.savePracticeState();
         
         this.switchTab('study'); 
@@ -794,7 +793,7 @@ const App = {
                 labels, 
                 datasets: [
                     { label: '认识 (绿)', data: knownVals, backgroundColor: '#10B981' }, 
-                    { label: '忘记 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
+                    { label: '不认识 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
                 ] 
             }, 
             options: { 
@@ -808,14 +807,13 @@ const App = {
         });
     },
 
-    // 性能大优化：防止对没有任何日志记录的单词进行全盘重复扫描
     enterAccumulationView: function() { this.switchTab('accumulation-detail'); this.renderAccTable(); },
     renderAccTable: function() {
         let stats = [];
         for (let i = 0; i < this.state.masterData.length; i++) {
             const item = this.state.masterData[i];
             const logs = this.state.logs[item.id];
-            if (!logs) continue; // 如果没日志直接跳过，绝不浪费时间
+            if (!logs) continue; 
             
             const pureLogs = [];
             let f = 0;
