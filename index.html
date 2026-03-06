@@ -46,6 +46,15 @@
         .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; }
         .main-scroll-area::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { display: none; }
 
+        /* 菜单垂直水平居中专属类，替代原有内联 style，解决页面无法跳转的恶性 BUG */
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: calc(100vh - 120px);
+            padding: 20px 0;
+        }
+
         #bottom-nav { 
             background: #E2E8F0; 
             height: 65px; display: flex; align-items: center; justify-content: space-around; z-index: 1000; 
@@ -78,11 +87,8 @@
         
         .card-rose { background: #FFF1F2; border-color: #FFE4E6; box-shadow: none; }
         .card-blue { background: #EFF6FF; border-color: #DBEAFE; box-shadow: none; }
-        .card-blue h2 { color: #1D4ED8; }
         .card-emerald { background: #ECFDF5; border-color: #D1FAE5; box-shadow: none; }
-        .card-emerald h2 { color: #047857; }
         .card-amber { background: #FFFBEB; border-color: #FEF3C7; box-shadow: none; }
-        .card-amber h2 { color: #B45309; }
 
         .card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
         .card-header h2 { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px;}
@@ -212,7 +218,7 @@
             </div>
         </div>
 
-        <div id="tab-stats" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
+        <div id="tab-stats" class="section hidden menu-container">
             <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px; margin-bottom: 20px;">
                 <h2 id="mistake-title" style="margin:0; text-align:center;">今日事</h2>
             </div>
@@ -227,7 +233,7 @@
             </div>
         </div>
 
-        <div id="tab-daily-menu" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
+        <div id="tab-daily-menu" class="section hidden menu-container">
             <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()" style="display:flex; justify-content:center; align-items:center; padding: 36px 16px; margin-bottom: 20px;">
                 <h2 style="margin:0; text-align:center;">平均背诵趋势</h2>
             </div>
@@ -343,19 +349,14 @@ const App = {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        // 监听安卓底层 Hash 路由，接管手机侧滑返回手势
-        window.addEventListener('hashchange', () => {
-            const tab = window.location.hash.replace('#', '') || 'select';
-            this.switchTab(tab, true);
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.tab) {
+                this.switchTab(e.state.tab, true);
+            } else {
+                this.switchTab('select', true);
+            }
         });
-
-        // 初始页面加载路由挂载
-        if (!window.location.hash) {
-            window.history.replaceState(null, null, '#select');
-            this.switchTab('select', true);
-        } else {
-            this.switchTab(window.location.hash.replace('#', ''), true);
-        }
+        history.replaceState({ tab: 'select' }, '', '#select');
     },
 
     unlockAudio: function() {
@@ -526,8 +527,8 @@ const App = {
             document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
-            // 结束背诵，跳转防止手势又退回来
-            window.location.replace('#stats');
+            // 返回上一个页面（如果是新背诵则回首页，错题则回统计大厅）
+            this.switchTab('stats');
         }
     },
 
@@ -545,39 +546,23 @@ const App = {
         const title = document.getElementById('mistake-title');
         const card = document.getElementById('mistake-card');
         
-        // 彻底完成需求：消灭完变成“今日事，今日毕！”
+        // 完美修复：错题清空后展示特定颜色和表情
         if (bad.length === 0) { 
-            title.innerHTML = `今日事，今日毕！`;
-            title.style.color = "var(--success)";
-            if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.6"; }
+            title.innerHTML = `今日事，今日毕！ 🎉`; 
+            title.style.color = "#D65A69"; // 柔和莫兰迪红
+            if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.7"; }
         } else { 
             title.innerHTML = `今日事<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:12px;">(${bad.length} 词待消灭)</span>`; 
-            title.style.color = ""; // 恢复默认
+            title.style.color = ""; 
             if(card) { card.style.pointerEvents = "auto"; card.style.opacity = "1"; }
         }
     },
 
-    // 真正的 Hash 路由分发器
-    switchTab: function(id, fromHashChange = false) {
-        
-        // 如果不是由底层的系统 URL 返回触发的，主动推进历史堆栈
-        if (!fromHashChange) {
-            window.location.hash = id;
-            return; // 交给 addEventListener('hashchange') 来处理后续 UI 展示
-        }
-        
-        document.querySelectorAll('.section').forEach(s => {
-            s.classList.add('hidden');
-            s.style.setProperty('display', '', 'important');
-        }); 
-        
+    // 核心跳转修复：只通过增删类名实现显隐，避免行内 style 干扰
+    switchTab: function(id, fromHistory = false) {
+        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden')); 
         const target = document.getElementById('tab-' + id);
-        if(target) {
-            target.classList.remove('hidden');
-            if (['stats', 'daily-menu'].includes(id)) {
-                target.style.setProperty('display', 'flex', 'important');
-            }
-        }
+        if (target) target.classList.remove('hidden');
         
         let activeId = id;
         if (id === 'preview') activeId = 'select';
@@ -589,6 +574,11 @@ const App = {
 
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
+        
+        // 正确生成系统级返回层级，兼容原生左侧滑手势
+        if (!fromHistory) {
+            history.pushState({ tab: id }, '', `#${id}`);
+        }
     },
 
     handleKeydown: function(e) {
