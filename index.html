@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v1.15</title>
+    <title>西语背词助手 v1.16</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -45,15 +45,6 @@
         .main-scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; width: 100%; position: relative;}
         .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; }
         .main-scroll-area::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { display: none; }
-
-        /* 菜单垂直水平居中专属类，替代原有内联 style，解决页面无法跳转的恶性 BUG */
-        .menu-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-height: calc(100vh - 120px);
-            padding: 20px 0;
-        }
 
         #bottom-nav { 
             background: #E2E8F0; 
@@ -218,7 +209,7 @@
             </div>
         </div>
 
-        <div id="tab-stats" class="section hidden menu-container">
+        <div id="tab-stats" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
             <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px; margin-bottom: 20px;">
                 <h2 id="mistake-title" style="margin:0; text-align:center;">今日事</h2>
             </div>
@@ -233,7 +224,7 @@
             </div>
         </div>
 
-        <div id="tab-daily-menu" class="section hidden menu-container">
+        <div id="tab-daily-menu" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
             <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()" style="display:flex; justify-content:center; align-items:center; padding: 36px 16px; margin-bottom: 20px;">
                 <h2 style="margin:0; text-align:center;">平均背诵趋势</h2>
             </div>
@@ -349,14 +340,22 @@ const App = {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
+        // ============================================
+        // 核心修复：纯原生 HTML5 History API 监听侧滑返回
+        // ============================================
         window.addEventListener('popstate', (e) => {
+            // e.state 包含了我们之前 pushState 放进去的 tab 标记
             if (e.state && e.state.tab) {
-                this.switchTab(e.state.tab, true);
+                this.switchTab(e.state.tab, true); // true 表示这是系统发起的返回，不要再重复 pushState
             } else {
                 this.switchTab('select', true);
             }
         });
-        history.replaceState({ tab: 'select' }, '', '#select');
+        
+        // 页面刚加载时，用 replaceState 种下第一条历史记录（选词页）
+        const initialTab = window.location.hash ? window.location.hash.replace('#', '') : 'select';
+        history.replaceState({ tab: initialTab }, '', '#' + initialTab);
+        this.switchTab(initialTab, true);
     },
 
     unlockAudio: function() {
@@ -527,8 +526,10 @@ const App = {
             document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
-            // 返回上一个页面（如果是新背诵则回首页，错题则回统计大厅）
-            this.switchTab('stats');
+            // 背诵结束：使用 replaceState 销毁背诵页面的历史记录，退回上一页
+            const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
+            history.replaceState({ tab: fallbackTarget }, '', `#${fallbackTarget}`);
+            this.switchTab(fallbackTarget, true);
         }
     },
 
@@ -546,11 +547,11 @@ const App = {
         const title = document.getElementById('mistake-title');
         const card = document.getElementById('mistake-card');
         
-        // 完美修复：错题清空后展示特定颜色和表情
         if (bad.length === 0) { 
+            // 完美完成：错题清空后，文字修改，应用柔和莫兰迪红，并附带烟花表情
             title.innerHTML = `今日事，今日毕！ 🎉`; 
-            title.style.color = "#D65A69"; // 柔和莫兰迪红
-            if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.7"; }
+            title.style.color = "#D65A69"; // 柔和的红色
+            if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.8"; }
         } else { 
             title.innerHTML = `今日事<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:12px;">(${bad.length} 词待消灭)</span>`; 
             title.style.color = ""; 
@@ -558,12 +559,22 @@ const App = {
         }
     },
 
-    // 核心跳转修复：只通过增删类名实现显隐，避免行内 style 干扰
-    switchTab: function(id, fromHistory = false) {
-        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden')); 
-        const target = document.getElementById('tab-' + id);
-        if (target) target.classList.remove('hidden');
+    // ============================================
+    // 核心修复：完全重构跳转显示逻辑，摒弃内联 !important
+    // ============================================
+    switchTab: function(id, isBackAction = false) {
+        // 第一步：隐藏所有的界面
+        document.querySelectorAll('.section').forEach(s => {
+            s.classList.add('hidden');
+        }); 
         
+        // 第二步：显示目标界面
+        const target = document.getElementById('tab-' + id);
+        if (target) {
+            target.classList.remove('hidden');
+        }
+        
+        // 第三步：更新底部导航的高亮
         let activeId = id;
         if (id === 'preview') activeId = 'select';
         if (['mistake-detail', 'daily-menu', 'learning-progress', 'daily-table', 'accumulation-detail', 'data-management'].includes(id)) activeId = 'stats';
@@ -572,12 +583,16 @@ const App = {
         const activeBtn = document.getElementById('nav-' + activeId); 
         if (activeBtn) activeBtn.classList.add('nav-tab-active'); 
 
+        // 第四步：重置UI与滚轮
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
         
-        // 正确生成系统级返回层级，兼容原生左侧滑手势
-        if (!fromHistory) {
-            history.pushState({ tab: id }, '', `#${id}`);
+        // 第五步：将用户的点击操作压入系统底层历史栈
+        if (!isBackAction) {
+            // 防止用户疯狂点击同一个按钮注入大量垃圾历史记录
+            if (!history.state || history.state.tab !== id) {
+                history.pushState({ tab: id }, '', `#${id}`);
+            }
         }
     },
 
