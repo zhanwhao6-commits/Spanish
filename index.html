@@ -166,12 +166,12 @@
             <div id="deckShelf" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px"></div>
             
             <div class="control-panel" style="display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 12px;">
-                <input type="text" id="rangeInput" placeholder="范围如1-30" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
+                <input type="text" id="rangeInput" placeholder="范围" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
                 <button class="btn btn-study" style="padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.processSelection()">选中</button>
                 
                 <div style="width: 1px; height: 16px; background: var(--divider); flex-shrink: 0; margin: 0 2px;"></div>
                 
-                <input type="text" id="deckNameInput" placeholder="命名牌组" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
+                <input type="text" id="deckNameInput" placeholder="命名" style="flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;">
                 <button class="btn" style="background: white; padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.createDeck()">建组</button>
             </div>
 
@@ -221,31 +221,31 @@
 
         <div id="tab-stats" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
             <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px;">
-                <h2 id="mistake-title" style="margin:0; text-align:center;">今日错题</h2>
+                <h2 id="mistake-title" style="margin:0; text-align:center;">今日事</h2>
             </div>
             <div class="card card-blue clickable-card" onclick="App.enterAccumulationView()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px;">
-                <h2 style="margin:0; text-align:center;">厚积薄发 (全量历程)</h2>
+                <h2 style="margin:0; text-align:center;">厚积薄发</h2>
             </div>
             <div class="card card-emerald clickable-card" onclick="App.switchTab('daily-menu')" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px;">
-                <h2 style="margin:0; text-align:center;">日积月累 (打卡报表)</h2>
+                <h2 style="margin:0; text-align:center;">日积月累</h2>
             </div>
             <div class="card card-amber clickable-card" onclick="App.enterDataManagement()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px; margin-bottom: 0;">
-                <h2 style="margin:0; text-align:center;">数据管理 (缓存)</h2>
+                <h2 style="margin:0; text-align:center;">数据管理</h2>
             </div>
         </div>
 
         <div id="tab-daily-menu" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
             <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()" style="display:flex; justify-content:center; align-items:center; padding: 36px 16px;">
-                <h2 style="margin:0; text-align:center;">平均背诵趋势图</h2>
+                <h2 style="margin:0; text-align:center;">平均背诵趋势</h2>
             </div>
             <div class="card card-emerald clickable-card" onclick="App.enterDailyTableDetail()" style="display:flex; justify-content:center; align-items:center; padding: 36px 16px; margin-bottom: 0;">
-                <h2 style="margin:0; text-align:center;">每日背诵流水表</h2>
+                <h2 style="margin:0; text-align:center;">每日背诵流水</h2>
             </div>
         </div>
 
         <div id="tab-learning-progress" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <h2 style="margin-bottom: 20px; font-weight:700; text-align: center;">背诵趋势 (日均数量)</h2>
+                <h2 style="margin-bottom: 20px; font-weight:700; text-align: center;">背诵趋势</h2>
                 <div class="chart-controls">
                     <button class="btn bin-btn" id="bin-1" onclick="App.renderBinnedChart(1)">日</button>
                     <button class="btn bin-btn" id="bin-7" onclick="App.renderBinnedChart(7)">周</button>
@@ -259,17 +259,17 @@
 
         <div id="tab-daily-table" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <div class="card-header"><h2>背诵详单</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
+                <div class="card-header"><h2>背诵详情</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
                 <div class="table-wrapper"><table id="dailyTable"><thead><tr><th>日期</th><th style="width:40px;">数量</th><th style="width:40px;">认识</th><th style="width:50px;">不认识</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
             </div>
         </div>
 
         <div id="tab-accumulation-detail" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <div class="card-header"><h2>全量首背历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
+                <div class="card-header"><h2>历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
                 <div class="table-wrapper">
                     <table id="accTable">
-                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号⇅</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">错⇅</th></tr></thead>
+                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号</th><th style="width:30%">单词</th><th>记录</th><th style="width:40px" onclick="App.sortAcc('f')">次数</th></tr></thead>
                         <tbody id="accBody"></tbody>
                     </table>
                 </div>
@@ -544,10 +544,10 @@ const App = {
         const title = document.getElementById('mistake-title');
         const card = document.getElementById('mistake-card');
         if (bad.length === 0) { 
-            title.innerHTML = `今日错题<span style="display:block; color:var(--success); font-size:14px; font-weight:600; margin-top:6px;">(已清空)</span>`; 
+            title.innerHTML = `今日事<span style="display:block; color:var(--success); font-size:14px; font-weight:600; margin-top:14px;">今日毕！</span>`; 
             if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.6"; }
         } else { 
-            title.innerHTML = `今日错题<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:6px;">(${bad.length} 词待消灭)</span>`; 
+            title.innerHTML = `今日事<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:12px;">(${bad.length} 词待消灭)</span>`; 
             if(card) { card.style.pointerEvents = "auto"; card.style.opacity = "1"; }
         }
     },
@@ -641,7 +641,7 @@ const App = {
         const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
         
         if(!n || ids.length === 0) {
-            return alert("请先选中单词（输入范围或在列表中勾选），并输入牌组名称，才能建组！"); 
+            return alert("选词并命名牌组，才能建组！"); 
         }
         this.state.decks[n] = ids; 
         localStorage.setItem('es_decks', JSON.stringify(this.state.decks)); 
@@ -792,22 +792,22 @@ const App = {
     exportDailyDetail: function() { 
         const dailyData = []; const stats = this.getDailyLogStats();
         Object.keys(stats).sort((a,b)=>new Date(b)-new Date(a)).forEach(d => {
-            dailyData.push({"日期": d, "总首背数": stats[d].c, "认识": stats[d].k, "不认识": stats[d].u});
+            dailyData.push({"日期": d, "总背数": stats[d].c, "认识": stats[d].k, "不认识": stats[d].u});
         });
         const ws = XLSX.utils.json_to_sheet(dailyData); const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "每日首背流水"); XLSX.writeFile(wb, "背诵首背流水详情.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "每日流水"); XLSX.writeFile(wb, "背诵流水详情.xlsx");
     },
     exportAccTable: function() { 
         const accData = this.state.masterData.map(i => {
             const pureLogs = (this.state.logs[i.id] || []).filter(x => !x.isReview);
             return {
                 "所属源": i.source || '未命名', "序号": i.id, "单词": i.word, "中文": i.cn, 
-                "首背错误次数": pureLogs.filter(x=>!x.res).length,
-                "首背历程": pureLogs.map((x,idx)=>(idx+1)+(x.res?'[认]':'[错]')).join(' ')
+                "错误次数": pureLogs.filter(x=>!x.res).length,
+                "历程": pureLogs.map((x,idx)=>(idx+1)+(x.res?'[认]':'[错]')).join(' ')
             };
         }).filter(i => i.首背历程 !== "");
         const ws = XLSX.utils.json_to_sheet(accData); const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "首背历程统计"); XLSX.writeFile(wb, "全量首背历程.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "历程统计"); XLSX.writeFile(wb, "历程统计.xlsx");
     }
 };
 
@@ -815,4 +815,5 @@ window.onload = () => App.init();
 </script>
 </body>
 </html>
+
 
