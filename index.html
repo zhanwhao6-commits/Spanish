@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.1</title>
+    <title>西语背词助手 v2.2</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -94,11 +94,13 @@
         
         input[type="text"], select { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 14px; font-family: inherit; font-size: 14px; color: var(--text-main); outline: none; box-sizing: border-box; width: 100%; }
         input[type="file"] { display: none; }
-        .upload-label { display: block; background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 14px; color: var(--text-main); font-weight: 600; cursor: pointer; text-align: center; font-size: 13px; flex: 1; margin: 0;}
         
-        select { appearance: none; font-weight: 600; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+        /* 优化点1：调整上传按钮的大小，去除 flex: 1，增加最大宽度限制 */
+        .upload-label { display: block; background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius-md); padding: 10px 12px; color: var(--text-main); font-weight: 600; cursor: pointer; text-align: center; font-size: 13px; margin: 0; white-space: nowrap;}
+        
+        /* 优化点2：给 select 加上文字溢出省略，防止长词库名撑爆屏幕 */
+        select { appearance: none; font-weight: 600; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;}
 
-        /* 增加了一点极淡的阴影补偿失去的卡片效果 */
         .table-wrapper { border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.02);}
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: auto; }
         thead th { background: rgba(255,255,255,0.95); padding: 12px 8px; border-bottom: 1px solid var(--divider); font-size: 13px; font-weight: 600; color: var(--text-sub); position: sticky; top: 0; z-index: 10;}
@@ -153,12 +155,12 @@
         
         <div id="tab-select" class="section">
             
-            <div class="control-panel" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 8px; padding: 12px; margin-top: 0;">
-                <label for="excelFile" class="upload-label">导入词库 (Excel)</label>
+            <div class="control-panel" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; padding: 12px; margin-top: 0;">
+                <label for="excelFile" class="upload-label">导入词库</label>
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
                 
-                <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
-                    <span style="font-size: 13px; font-weight: 600; color: var(--text-sub);">当前:</span>
+                <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
+                    <span style="font-size: 13px; font-weight: 600; color: var(--text-sub); flex-shrink: 0;">当前:</span>
                     <select id="datasetSelect" onchange="App.changeDataset()" style="width: 100%; font-size: 13px;"></select>
                 </div>
             </div>
@@ -788,7 +790,6 @@ const App = {
         if(confirm("危险：将清除所有本地数据（词库与背诵记录），是否继续？")) { localStorage.clear(); location.reload(); } 
     },
 
-    // 补回了被遗忘的导出核心逻辑
     exportDailyDetail: function() { 
         const dailyData = []; const stats = this.getDailyLogStats();
         Object.keys(stats).sort((a,b)=>new Date(b)-new Date(a)).forEach(d => {
@@ -805,7 +806,7 @@ const App = {
                 "错误次数": pureLogs.filter(x=>!x.res).length,
                 "历程": pureLogs.map((x,idx)=>(idx+1)+(x.res?'[认]':'[错]')).join(' ')
             };
-        }).filter(i => i.首背历程 !== "");
+        }).filter(i => i.历程 !== "");
         const ws = XLSX.utils.json_to_sheet(accData); const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "历程统计"); XLSX.writeFile(wb, "历程统计.xlsx");
     }
@@ -815,5 +816,3 @@ window.onload = () => App.init();
 </script>
 </body>
 </html>
-
-
