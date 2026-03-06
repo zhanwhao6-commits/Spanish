@@ -212,7 +212,7 @@
                 </div>
             </div>
             <div class="bottom-action-bar" id="action-btns">
-                <button class="btn-l" style="background:var(--error)" onclick="App.handleEvaluation(false)">不认识 (K)</button>
+                <button class="btn-l" style="background:var(--error)" onclick="App.handleEvaluation(false)">忘记 (K)</button>
                 <button class="btn-l" style="background:var(--success)" onclick="App.handleEvaluation(true)">认识 (J)</button>
             </div>
         </div>
@@ -326,13 +326,13 @@ const Utils = {
 const App = {
     state: {
         masterData: JSON.parse(localStorage.getItem('es_master_data') || '[]'),
-        masterMap: new Map(), // O(1) 底层加速字典字典，极大加快程序运行速度
+        masterMap: new Map(), // O(1) 底层加速字典，极大加快程序运行速度
         logs: JSON.parse(localStorage.getItem('es_logs') || '{}'),
         decks: JSON.parse(localStorage.getItem('es_decks') || '{}'),
         currentDataset: localStorage.getItem('es_current_dataset') || '',
         currentDeck: null, 
         
-        // 进度持久化相关，保证退出再进能继续背
+        // --- 核心优化：进度持久化状态 ---
         currentPracticeList: JSON.parse(localStorage.getItem('es_practice_list') || '[]'),
         currentIndex: parseInt(localStorage.getItem('es_practice_index') || '0', 10),
         isReviewMode: localStorage.getItem('es_practice_mode') === 'true',
@@ -344,7 +344,7 @@ const App = {
     isLongPress: false,
 
     init: function() {
-        // 构建高速查询索引（解决每次开机统计页面和找错题卡顿的问题）
+        // 构建高速查询索引
         for (let i = 0; i < this.state.masterData.length; i++) {
             this.state.masterMap.set(this.state.masterData[i].id, this.state.masterData[i]);
         }
@@ -360,17 +360,17 @@ const App = {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        // 核心：启动时自动检测是否有未完成的背诵进度
-        if (this.state.currentPracticeList.length > 0 && this.state.currentIndex < this.state.currentPracticeList.length) {
+        // --- 核心优化：启动时自动检测并恢复未完成的背诵进度 ---
+        if (this.state.currentPracticeList && this.state.currentPracticeList.length > 0 && this.state.currentIndex < this.state.currentPracticeList.length) {
             this.switchTab('study');
-            // 初始化复原背诵卡片的界面状态
+            // 初始化复原背诵卡片的界面状态，防止上一次是在看答案时退出的
             this.state.isAnswerStep = false; 
             document.getElementById('reveal-area').classList.remove('show-answer'); 
             document.getElementById('action-btns').style.opacity = "1"; 
             document.getElementById('action-btns').style.pointerEvents = "auto"; 
             this.renderCard();
         } else {
-            // 没有待办进度，清空缓存，默认回到主页
+            // 没有待办进度，清空任何残留缓存，默认回到主页
             this.clearPracticeState();
             this.switchTab('select');
         }
@@ -522,7 +522,7 @@ const App = {
         this.state.isReviewMode = false; 
         this.state.currentIndex = 0;
         
-        // 核心：保存刚开启的背诵任务进度到本地
+        // 保存新开启的背诵进度
         this.savePracticeState();
         
         this.switchTab('study'); 
@@ -559,13 +559,13 @@ const App = {
         this.state.currentIndex++;
         
         if (this.state.currentIndex < this.state.currentPracticeList.length) {
-            // 核心：进度加 1，并立刻存入缓存
+            // 每背完一个，就向本地缓存更新一次进度索引
             this.savePracticeState(); 
             this.state.isAnswerStep = false; document.getElementById('reveal-area').classList.remove('show-answer');
             document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
-            // 背诵结束，清空进度缓存，回到该回的页面
+            // 整个列表背诵结束，清空进度，保证下次正常加载
             this.clearPracticeState();
             const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
             this.switchTab(fallbackTarget);
@@ -794,7 +794,7 @@ const App = {
                 labels, 
                 datasets: [
                     { label: '认识 (绿)', data: knownVals, backgroundColor: '#10B981' }, 
-                    { label: '不认识 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
+                    { label: '忘记 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
                 ] 
             }, 
             options: { 
