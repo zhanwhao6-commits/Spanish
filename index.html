@@ -149,8 +149,6 @@
 </head>
 <body>
 
-<div id="sys-back-area" onclick="App.goBack()" style="position: fixed; top: 0; left: 0; width: 60px; height: 60px; z-index: 9999; background: transparent; display: none;"></div>
-
 <div id="next-overlay" onclick="App.nextCard()"></div>
 
 <div class="main-scroll-area">
@@ -350,54 +348,23 @@ const App = {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        // --- 纯 JS 手势侦测逻辑开始 ---
-        let touchStartX = 0;
-        let touchStartY = 0;
+        // --- 核心修复：基于 URL Hash 的历史记录管理开始 ---
+        // 监听由于用户侧滑返回（或者点击实体返回键）造成的 Hash 改变
+        window.addEventListener('hashchange', () => {
+            let targetId = window.location.hash.replace('#', '');
+            if (!targetId) targetId = 'select'; // 兜底
+            // 收到系统返回通知后，代码负责切换到对应的老页面，fromHistory设为true，避免死循环
+            this.switchTab(targetId, true); 
+        });
 
-        document.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 0) {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-            }
-        }, { passive: true });
-
-        document.addEventListener('touchend', (e) => {
-            if (e.changedTouches.length > 0) {
-                let touchEndX = e.changedTouches[0].clientX;
-                let touchEndY = e.changedTouches[0].clientY;
-                let deltaX = touchEndX - touchStartX;
-                let deltaY = touchEndY - touchStartY;
-
-                // 判断是否为返回手势：起点在屏幕左侧边缘(<=40px)，向右滑动且横滑距离>50px，纵向偏差<50px
-                if (touchStartX <= 40 && deltaX > 50 && Math.abs(deltaY) < 50) {
-                    const backBtn = document.getElementById('sys-back-area');
-                    // 只有在特定界面（透明按钮处于显示状态时）才激活返回
-                    if (backBtn && backBtn.style.display !== 'none') {
-                        App.goBack();
-                    }
-                }
-            }
-        }, { passive: true });
-        // --- 纯 JS 手势侦测逻辑结束 ---
-    },
-
-    // 核心跳转返回路由控制
-    goBack: function() {
-        const activeTabs = Array.from(document.querySelectorAll('.section:not(.hidden)')).map(s => s.id);
-        if (activeTabs.includes('tab-preview')) {
-            this.switchTab('select');
-        } else if (activeTabs.includes('tab-learning-progress') || activeTabs.includes('tab-daily-table')) {
-            this.switchTab('daily-menu'); // 从二级图表退回二级菜单
-        } else if (activeTabs.includes('tab-daily-menu') || activeTabs.includes('tab-mistake-detail') || 
-                   activeTabs.includes('tab-accumulation-detail') || activeTabs.includes('tab-data-management')) {
-            this.switchTab('stats');
-        } else if (activeTabs.includes('tab-study')) {
-            if (this.state.isReviewMode) {
-                this.switchTab('stats');
-            } else {
-                this.switchTab('select');
-            }
+        // 首次加载应用时，确保 URL 上有一个默认的 hash，以此作为历史记录的第一层底座
+        if (!window.location.hash) {
+            window.location.replace('#select'); 
+        } else {
+            const initialTab = window.location.hash.replace('#', '');
+            this.switchTab(initialTab, true);
         }
+        // --- 基于 URL Hash 的历史记录管理结束 ---
     },
 
     unlockAudio: function() {
@@ -568,9 +535,10 @@ const App = {
             document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
-            // 结束背诵，无历史记录操作，直接切换页面
+            // 结束背诵，防止直接侧滑退回刚刚完成的背诵进度，替换当前历史为目的地
             const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
-            this.switchTab(fallbackTarget);
+            window.location.replace(`#${fallbackTarget}`);
+            this.switchTab(fallbackTarget, true);
         }
     },
 
@@ -599,7 +567,7 @@ const App = {
         }
     },
 
-    switchTab: function(id) {
+    switchTab: function(id, fromHistory = false) {
         document.querySelectorAll('.section').forEach(s => {
             s.classList.add('hidden');
             s.style.removeProperty('display'); 
@@ -621,12 +589,11 @@ const App = {
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
         
-        // 智能控制系统返回按钮（即透明的热区）的显示与隐藏
-        const backBtn = document.getElementById('sys-back-area');
-        if (['preview', 'study', 'mistake-detail', 'daily-menu', 'learning-progress', 'daily-table', 'accumulation-detail', 'data-management'].includes(id)) {
-            backBtn.style.display = 'block';
-        } else {
-            backBtn.style.display = 'none';
+        // --- 核心修复：如果是通过点击按钮切换界面的，就主动推入一条历史记录 ---
+        if (!fromHistory) {
+            if (window.location.hash !== `#${id}`) {
+                window.location.hash = id;
+            }
         }
     },
 
