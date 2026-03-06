@@ -98,7 +98,8 @@
         
         select { appearance: none; font-weight: 600; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
 
-        .table-wrapper { border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+        /* 增加了一点极淡的阴影补偿失去的卡片效果 */
+        .table-wrapper { border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.02);}
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: auto; }
         thead th { background: rgba(255,255,255,0.95); padding: 12px 8px; border-bottom: 1px solid var(--divider); font-size: 13px; font-weight: 600; color: var(--text-sub); position: sticky; top: 0; z-index: 10;}
         td { padding: 12px 8px; border-bottom: 1px solid var(--divider); font-size: 14px; word-break: break-word;}
@@ -184,20 +185,18 @@
         </div>
 
         <div id="tab-preview" class="section hidden" style="padding-top: 10px;">
-            <div class="card">
-                <div class="card-header" style="flex-direction: column; align-items: stretch; gap: 15px;">
-                    <h2 style="text-align: center;">本次目标 (<span id="preview-count" style="color:var(--primary)">0</span> 词)</h2>
-                    <div style="display:flex; gap:10px; width: 100%;">
-                        <button class="btn btn-study" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(false)">顺序背诵</button>
-                        <button class="btn btn-accent" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(true)">乱序挑战</button>
-                    </div>
+            <div style="display: flex; flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 20px;">
+                <h2 style="text-align: center; margin: 0;">本次目标 (<span id="preview-count" style="color:var(--primary)">0</span> 词)</h2>
+                <div style="display:flex; gap:10px; width: 100%;">
+                    <button class="btn btn-study" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(false)">顺序背诵</button>
+                    <button class="btn btn-accent" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(true)">乱序挑战</button>
                 </div>
-                <div class="table-wrapper" style="margin-top: 20px;">
-                    <table id="previewTable">
-                        <thead><tr><th class="col-index">序号</th><th style="width:35%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
-                        <tbody id="previewBody"></tbody>
-                    </table>
-                </div>
+            </div>
+            <div class="table-wrapper">
+                <table id="previewTable">
+                    <thead><tr><th class="col-index">序号</th><th style="width:35%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
             </div>
         </div>
 
@@ -221,32 +220,32 @@
         </div>
 
         <div id="tab-stats" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
-            <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()" style="margin-bottom: 20px; padding: 28px 16px;">
-                <h2 id="mistake-title" style="margin:0; text-align:center;">今日事</h2>
+            <div class="card card-rose clickable-card" id="mistake-card" onclick="App.enterMistakeDetail()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px;">
+                <h2 id="mistake-title" style="margin:0; text-align:center;">今日错题</h2>
             </div>
-            <div class="card card-blue clickable-card" onclick="App.enterAccumulationView()" style="margin-bottom: 20px; padding: 28px 16px;">
-                <h2 style="margin:0; text-align:center;">厚积薄发</h2>
+            <div class="card card-blue clickable-card" onclick="App.enterAccumulationView()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px;">
+                <h2 style="margin:0; text-align:center;">厚积薄发 (全量历程)</h2>
             </div>
-            <div class="card card-emerald clickable-card" onclick="App.switchTab('daily-menu')" style="margin-bottom: 20px; padding: 28px 16px;">
-                <h2 style="margin:0; text-align:center;">日积月累</h2>
+            <div class="card card-emerald clickable-card" onclick="App.switchTab('daily-menu')" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px;">
+                <h2 style="margin:0; text-align:center;">日积月累 (打卡报表)</h2>
             </div>
-            <div class="card card-amber clickable-card" onclick="App.enterDataManagement()" style="margin-bottom: 0; padding: 28px 16px;">
-                <h2 style="margin:0; text-align:center;">数据管理</h2>
+            <div class="card card-amber clickable-card" onclick="App.enterDataManagement()" style="display:flex; justify-content:center; align-items:center; padding: 24px 16px; margin-bottom: 0;">
+                <h2 style="margin:0; text-align:center;">数据管理 (缓存)</h2>
             </div>
         </div>
 
         <div id="tab-daily-menu" class="section hidden" style="display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100vh - 120px); padding: 20px 0;">
-            <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()" style="margin-bottom: 20px; padding: 36px 16px;">
-                <h2 style="margin:0; text-align:center;">背诵趋势图</h2>
+            <div class="card card-blue clickable-card" onclick="App.enterLearningProgress()" style="display:flex; justify-content:center; align-items:center; padding: 36px 16px;">
+                <h2 style="margin:0; text-align:center;">平均背诵趋势图</h2>
             </div>
-            <div class="card card-emerald clickable-card" onclick="App.enterDailyTableDetail()" style="margin-bottom: 0; padding: 36px 16px;">
-                <h2 style="margin:0; text-align:center;">每日背诵流水</h2>
+            <div class="card card-emerald clickable-card" onclick="App.enterDailyTableDetail()" style="display:flex; justify-content:center; align-items:center; padding: 36px 16px; margin-bottom: 0;">
+                <h2 style="margin:0; text-align:center;">每日背诵流水表</h2>
             </div>
         </div>
 
         <div id="tab-learning-progress" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <h2 style="margin-bottom: 20px; font-weight:700; text-align: center;">背诵趋势</h2>
+                <h2 style="margin-bottom: 20px; font-weight:700; text-align: center;">背诵趋势 (日均数量)</h2>
                 <div class="chart-controls">
                     <button class="btn bin-btn" id="bin-1" onclick="App.renderBinnedChart(1)">日</button>
                     <button class="btn bin-btn" id="bin-7" onclick="App.renderBinnedChart(7)">周</button>
@@ -260,17 +259,17 @@
 
         <div id="tab-daily-table" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <div class="card-header"><h2>背诵详情</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
+                <div class="card-header"><h2>背诵详单</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportDailyDetail()">导出</button></div>
                 <div class="table-wrapper"><table id="dailyTable"><thead><tr><th>日期</th><th style="width:40px;">数量</th><th style="width:40px;">认识</th><th style="width:50px;">不认识</th></tr></thead><tbody id="dailyBody"></tbody></table></div>
             </div>
         </div>
 
         <div id="tab-accumulation-detail" class="section hidden" style="padding-top: 10px;">
             <div class="card">
-                <div class="card-header"><h2>历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
+                <div class="card-header"><h2>全量首背历程</h2><button class="btn btn-study" style="font-size:13px;" onclick="App.exportAccTable()">导出</button></div>
                 <div class="table-wrapper">
                     <table id="accTable">
-                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">次数</th></tr></thead>
+                        <thead><tr><th class="col-index" onclick="App.sortAcc('id')">序号⇅</th><th style="width:30%">单词</th><th>历程记录</th><th style="width:40px" onclick="App.sortAcc('f')">错⇅</th></tr></thead>
                         <tbody id="accBody"></tbody>
                     </table>
                 </div>
@@ -347,12 +346,10 @@ const App = {
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
         
-        // 激活语音包监听
         if (window.speechSynthesis.onvoiceschanged !== undefined) {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
 
-        // 监听安卓系统层面的侧滑返回按键
         window.addEventListener('popstate', (e) => {
             if (e.state && e.state.tab) {
                 this.switchTab(e.state.tab, true);
@@ -370,19 +367,15 @@ const App = {
         this.state.audioUnlocked = true;
     },
 
-    // 优化1：三重降级的高可用发音引擎
     speakWord: function(word) {
         try { 
-            // 顺位1：有道翻译接口 (国内网络不卡)
             const youdaoAudio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&le=es`);
             const playPromise = youdaoAudio.play();
             
             if (playPromise !== undefined) {
                 playPromise.catch(e => {
-                    // 顺位2：谷歌翻译接口 (如果你在西班牙，这个大概率能通)
                     const googleAudio = new Audio(`https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`);
                     googleAudio.play().catch(err => {
-                        // 顺位3：调用系统本地语音包
                         this.fallbackTTS(word);
                     });
                 });
@@ -392,14 +385,12 @@ const App = {
         }
     },
     
-    // 调用安卓系统底层语音引擎
     fallbackTTS: function(word) {
         window.speechSynthesis.cancel(); 
         const msg = new SpeechSynthesisUtterance(word); 
         msg.lang = 'es-ES'; 
         msg.rate = 0.9; 
         
-        // 尝试寻找你下载的最高清的 Google 离线包
         const voices = window.speechSynthesis.getVoices();
         const esVoices = voices.filter(v => v.lang.toLowerCase().includes('es'));
         if (esVoices.length > 0) {
@@ -471,7 +462,7 @@ const App = {
     processSelection: function() {
         this.selectByRange(); 
         const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
-        if (ids.length === 0) return alert("输入范围或勾选单词！");
+        if (ids.length === 0) return alert("请先输入范围或在列表中勾选要背诵的单词！");
         this.previewSelected(ids);
     },
 
@@ -553,25 +544,23 @@ const App = {
         const title = document.getElementById('mistake-title');
         const card = document.getElementById('mistake-card');
         if (bad.length === 0) { 
-            title.innerHTML = `今日事<span style="display:block; color:var(--success); font-size:14px; font-weight:600; margin-top:14px;">今日毕！！！</span>`; 
+            title.innerHTML = `今日错题<span style="display:block; color:var(--success); font-size:14px; font-weight:600; margin-top:6px;">(已清空)</span>`; 
             if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.6"; }
         } else { 
-            title.innerHTML = `今日事<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:10px;">(${bad.length} 词待消灭)</span>`; 
+            title.innerHTML = `今日错题<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:6px;">(${bad.length} 词待消灭)</span>`; 
             if(card) { card.style.pointerEvents = "auto"; card.style.opacity = "1"; }
         }
     },
 
     switchTab: function(id, fromHistory = false) {
-        // Handle hide/show by explicitly replacing display class
         document.querySelectorAll('.section').forEach(s => {
             s.classList.add('hidden');
-            s.style.setProperty('display', '', 'important'); // clean up explicit inline displays
+            s.style.setProperty('display', '', 'important');
         }); 
         
         const target = document.getElementById('tab-' + id);
         target.classList.remove('hidden');
         
-        // Fix for centering: Force display flex if it's a menu tab
         if (['stats', 'daily-menu'].includes(id)) {
             target.style.setProperty('display', 'flex', 'important');
         }
@@ -587,7 +576,6 @@ const App = {
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
         
-        // 只有非手机手势返回的点击，才向手机推送系统历史
         if (!fromHistory) {
             history.pushState({ tab: id }, '', `#${id}`);
         }
@@ -653,7 +641,7 @@ const App = {
         const ids = Array.from(document.querySelectorAll('.word-check:checked')).map(el => el.dataset.id); 
         
         if(!n || ids.length === 0) {
-            return alert("请先选中单词，并输入牌组名称，才能建组！"); 
+            return alert("请先选中单词（输入范围或在列表中勾选），并输入牌组名称，才能建组！"); 
         }
         this.state.decks[n] = ids; 
         localStorage.setItem('es_decks', JSON.stringify(this.state.decks)); 
@@ -749,7 +737,7 @@ const App = {
                 labels, 
                 datasets: [
                     { label: '认识 (绿)', data: knownVals, backgroundColor: '#10B981' }, 
-                    { label: '忘记 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
+                    { label: '不认识 (红)', data: unknownVals, backgroundColor: '#F43F5E' } 
                 ] 
             }, 
             options: { 
@@ -800,8 +788,27 @@ const App = {
         if(confirm("危险：将清除所有本地数据（词库与背诵记录），是否继续？")) { localStorage.clear(); location.reload(); } 
     },
 
-    exportDailyDetail: function() { /* 导出功能保留 */ },
-    exportAccTable: function() { /* 导出功能保留 */ }
+    // 补回了被遗忘的导出核心逻辑
+    exportDailyDetail: function() { 
+        const dailyData = []; const stats = this.getDailyLogStats();
+        Object.keys(stats).sort((a,b)=>new Date(b)-new Date(a)).forEach(d => {
+            dailyData.push({"日期": d, "总首背数": stats[d].c, "认识": stats[d].k, "不认识": stats[d].u});
+        });
+        const ws = XLSX.utils.json_to_sheet(dailyData); const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "每日首背流水"); XLSX.writeFile(wb, "背诵首背流水详情.xlsx");
+    },
+    exportAccTable: function() { 
+        const accData = this.state.masterData.map(i => {
+            const pureLogs = (this.state.logs[i.id] || []).filter(x => !x.isReview);
+            return {
+                "所属源": i.source || '未命名', "序号": i.id, "单词": i.word, "中文": i.cn, 
+                "首背错误次数": pureLogs.filter(x=>!x.res).length,
+                "首背历程": pureLogs.map((x,idx)=>(idx+1)+(x.res?'[认]':'[错]')).join(' ')
+            };
+        }).filter(i => i.首背历程 !== "");
+        const ws = XLSX.utils.json_to_sheet(accData); const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "首背历程统计"); XLSX.writeFile(wb, "全量首背历程.xlsx");
+    }
 };
 
 window.onload = () => App.init();
