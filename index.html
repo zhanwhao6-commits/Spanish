@@ -49,7 +49,7 @@
         }
 
         .main-scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; width: 100%; position: relative;}
-        .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; }
+        .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; transition: padding 0.2s;}
         .main-scroll-area::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { display: none; }
 
         .menu-container:not(.hidden) {
@@ -691,8 +691,19 @@ const App = {
         const activeBtn = document.getElementById('nav-' + activeId); 
         if (activeBtn) activeBtn.classList.add('nav-tab-active'); 
 
+        // 核心修复：针对统计页和二级菜单页，关闭上下滑动并移除多余的底部留白
+        const scrollArea = document.querySelector('.main-scroll-area');
+        const container = document.querySelector('.container');
+        if (id === 'stats' || id === 'daily-menu') {
+            scrollArea.style.overflowY = 'hidden';
+            container.style.paddingBottom = '20px'; // 移除底部用来防遮挡的长留白
+        } else {
+            scrollArea.style.overflowY = 'auto';
+            container.style.paddingBottom = '140px'; // 恢复列表页防底部导航栏遮挡的留白
+        }
+
         if(id === 'stats') this.updateMistakesUI();
-        document.querySelector('.main-scroll-area').scrollTop = 0; 
+        scrollArea.scrollTop = 0; 
     },
 
     handleKeydown: function(e) {
