@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.2</title>
+    <title>西语背词助手 v2.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -49,7 +49,7 @@
         }
 
         .main-scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; width: 100%; position: relative;}
-        .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; transition: padding 0.2s;}
+        .container { max-width: 900px; margin: 20px auto; padding: 0 15px 140px 15px; box-sizing: border-box; }
         .main-scroll-area::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { display: none; }
 
         .menu-container:not(.hidden) {
@@ -125,7 +125,6 @@
         .study-box { max-width: 500px; margin: 0 auto; text-align: center; padding-top: 10px;}
         .word-card { background: transparent; padding: 20px 10px; display: flex; flex-direction: column; align-items: center;}
         
-        /* 核心修复 2：将单词的 z-index 提升至 5001，确保它能刺透点击全屏下一题的透明遮罩 (z-index: 5000) */
         .q-word { 
             font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; color: var(--text-main); margin: 10px 0; 
             letter-spacing: -1px; line-height: 1.1; word-break: break-word; cursor: pointer; transition: transform 0.1s; user-select: none;
@@ -153,8 +152,13 @@
         .log-no { background: var(--error); }
 
         .chart-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-        /* 这里的遮罩层层级是 5000 */
+        
         #next-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5000; display: none; }
+        
+        /* 核心修复：统计页/菜单页专用的全局防滑透明遮罩 */
+        #stats-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 500; display: none; touch-action: none; }
+        /* 提升菜单卡片的层级，让它们穿透遮罩露出来可被点击 */
+        .menu-container .card { position: relative; z-index: 501; }
         
         @media (max-width: 400px) { td, th { padding: 10px 4px; font-size: 13px; } }
     </style>
@@ -162,6 +166,7 @@
 <body>
 
 <div id="next-overlay" onclick="App.nextCard()"></div>
+<div id="stats-overlay"></div>
 
 <div class="main-scroll-area">
     <div class="container">
@@ -374,6 +379,11 @@ const App = {
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
         
+        // 绑定遮罩防滑动事件
+        const statsOverlay = document.getElementById('stats-overlay');
+        statsOverlay.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        statsOverlay.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+        
         if (window.speechSynthesis.onvoiceschanged !== undefined) {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
@@ -516,17 +526,14 @@ const App = {
 
         const todayStr = Utils.getLocalDateString(Date.now());
         
-        // 获取本地存储的今日随机记录
         let dailyRandom = JSON.parse(localStorage.getItem('es_daily_random') || '{"date":"", "ids":[]}');
         if (dailyRandom.date !== todayStr) {
-            dailyRandom = { date: todayStr, ids: [] }; // 如果不是今天，则清空重新开始
+            dailyRandom = { date: todayStr, ids: [] }; 
         }
 
-        // 获取当前列表中所有的单词 ID (受当前牌组或全局显示的影响)
         const currentIds = Array.from(document.querySelectorAll('.word-check')).map(el => el.dataset.id);
         if (currentIds.length === 0) return alert("当前列表为空，无法随机抽取！");
 
-        // 过滤掉今天已经被随机抽取过的单词
         const availableIds = currentIds.filter(id => !dailyRandom.ids.includes(id));
         if (availableIds.length === 0) {
             return alert("今天该列表/牌组内的单词已全部被随机复习过啦！");
@@ -537,27 +544,22 @@ const App = {
             alert(`当前剩余未被抽过的单词只有 ${actualCount} 个，将全部选中。`);
         }
 
-        // 打乱数组
         for (let i = availableIds.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [availableIds[i], availableIds[j]] = [availableIds[j], availableIds[i]];
         }
         
-        // 截取所需数量的 ID
         const pickedIds = availableIds.slice(0, actualCount);
 
-        // 将抽取的 ID 存入今日记录中，防止今天再次被抽到
         dailyRandom.ids.push(...pickedIds);
         localStorage.setItem('es_daily_random', JSON.stringify(dailyRandom));
 
-        // 更新 UI 列表里的勾选状态
         document.querySelectorAll('.word-check').forEach(cb => cb.checked = false);
         pickedIds.forEach(id => {
             const cb = document.querySelector(`.word-check[data-id="${id}"]`);
             if (cb) cb.checked = true;
         });
 
-        // 直接进入复习预览界面
         this.previewSelected(pickedIds);
     },
 
@@ -691,37 +693,15 @@ const App = {
         const activeBtn = document.getElementById('nav-' + activeId); 
         if (activeBtn) activeBtn.classList.add('nav-tab-active'); 
 
-        // 核心修复：终极物理锁死菜单页滑动
-        const scrollArea = document.querySelector('.main-scroll-area');
-        const container = document.querySelector('.container');
+        // 控制透明遮罩的显示与隐藏
         if (id === 'stats' || id === 'daily-menu') {
-            scrollArea.style.overflow = 'hidden';
-            scrollArea.style.touchAction = 'none'; // 彻底物理阻断触控滑动
-            container.style.margin = '0 auto';
-            container.style.padding = '0 15px'; // 移除所有多余留白
-            container.style.height = '100%';
-            if (target) {
-                target.style.height = '100%';
-                target.style.minHeight = '100%';
-                target.style.margin = '0';
-                target.style.padding = '0';
-            }
+            document.getElementById('stats-overlay').style.display = 'block';
         } else {
-            scrollArea.style.overflow = '';
-            scrollArea.style.touchAction = ''; // 恢复滑动
-            container.style.margin = '20px auto';
-            container.style.padding = '0 15px 140px 15px'; // 恢复底部防遮挡
-            container.style.height = '';
-            if (target) {
-                target.style.height = '';
-                target.style.minHeight = '';
-                target.style.margin = '';
-                target.style.padding = '';
-            }
+            document.getElementById('stats-overlay').style.display = 'none';
         }
 
         if(id === 'stats') this.updateMistakesUI();
-        scrollArea.scrollTop = 0; 
+        document.querySelector('.main-scroll-area').scrollTop = 0; 
     },
 
     handleKeydown: function(e) {
