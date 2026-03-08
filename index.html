@@ -177,10 +177,10 @@
             </div>
 
             <div class="control-panel" style="display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 12px; flex-wrap: wrap; margin-bottom: 20px;">
-                <input type="text" id="deckNameInput" placeholder="命名新组" style="width: 90px; padding: 8px 10px; font-size: 13px;">
+                <input type="text" id="deckNameInput" placeholder="命名新组" style="width: 90px; padding: 8px 10px; font-size: 13px; flex-shrink: 0;">
                 <button class="btn" style="background: white; padding: 8px 12px; font-size: 13px; flex-shrink: 0;" onclick="App.createDeck()">建组</button>
                 <div style="width: 1px; height: 16px; background: var(--divider); flex-shrink: 0; margin: 0 2px;"></div>
-                <div id="deckShelf" style="display:flex; gap:8px; flex-wrap:wrap; flex: 1;"></div>
+                <div id="deckShelf" style="display: contents;"></div>
             </div>
             
             <div class="control-panel" style="display: flex; flex-direction: row; align-items: center; gap: 6px; padding: 12px; flex-wrap: wrap;">
@@ -509,7 +509,6 @@ const App = {
         this.previewSelected(ids);
     },
 
-    // 新增：处理随机选词
     processRandom: function() {
         const countStr = document.getElementById('randomCountInput').value.trim();
         const count = parseInt(countStr, 10);
