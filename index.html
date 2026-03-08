@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.1</title>
+    <title>西语背词助手 v2.2</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -691,15 +691,33 @@ const App = {
         const activeBtn = document.getElementById('nav-' + activeId); 
         if (activeBtn) activeBtn.classList.add('nav-tab-active'); 
 
-        // 核心修复：针对统计页和二级菜单页，关闭上下滑动并移除多余的底部留白
+        // 核心修复：终极物理锁死菜单页滑动
         const scrollArea = document.querySelector('.main-scroll-area');
         const container = document.querySelector('.container');
         if (id === 'stats' || id === 'daily-menu') {
-            scrollArea.style.overflowY = 'hidden';
-            container.style.paddingBottom = '20px'; // 移除底部用来防遮挡的长留白
+            scrollArea.style.overflow = 'hidden';
+            scrollArea.style.touchAction = 'none'; // 彻底物理阻断触控滑动
+            container.style.margin = '0 auto';
+            container.style.padding = '0 15px'; // 移除所有多余留白
+            container.style.height = '100%';
+            if (target) {
+                target.style.height = '100%';
+                target.style.minHeight = '100%';
+                target.style.margin = '0';
+                target.style.padding = '0';
+            }
         } else {
-            scrollArea.style.overflowY = 'auto';
-            container.style.paddingBottom = '140px'; // 恢复列表页防底部导航栏遮挡的留白
+            scrollArea.style.overflow = '';
+            scrollArea.style.touchAction = ''; // 恢复滑动
+            container.style.margin = '20px auto';
+            container.style.padding = '0 15px 140px 15px'; // 恢复底部防遮挡
+            container.style.height = '';
+            if (target) {
+                target.style.height = '';
+                target.style.minHeight = '';
+                target.style.margin = '';
+                target.style.padding = '';
+            }
         }
 
         if(id === 'stats') this.updateMistakesUI();
