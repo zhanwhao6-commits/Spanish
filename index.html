@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.3</title>
+    <title>西语背词助手 v2.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -125,6 +125,7 @@
         .study-box { max-width: 500px; margin: 0 auto; text-align: center; padding-top: 10px;}
         .word-card { background: transparent; padding: 20px 10px; display: flex; flex-direction: column; align-items: center;}
         
+        /* 核心修复：单词置于最顶层，以便在遮罩显示时仍可点击发音 */
         .q-word { 
             font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; color: var(--text-main); margin: 10px 0; 
             letter-spacing: -1px; line-height: 1.1; word-break: break-word; cursor: pointer; transition: transform 0.1s; user-select: none;
@@ -138,7 +139,8 @@
         .progress-container { width: 100%; background: var(--divider); border-radius: var(--radius-pill); height: 6px; margin-bottom: 24px; overflow: hidden; }
         .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.4s; border-radius: var(--radius-pill);}
 
-        .bottom-action-bar { position: fixed; bottom: calc(75px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; display: flex; gap: 12px; padding: 0 15px; box-sizing: border-box; z-index: 1000; transition: opacity 0.3s; }
+        /* 核心修复：底部按钮层级设为 5002，高于遮罩的 5000，以便随时点击 */
+        .bottom-action-bar { position: fixed; bottom: calc(75px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; display: flex; gap: 12px; padding: 0 15px; box-sizing: border-box; z-index: 5002; transition: opacity 0.3s; }
         .btn-l { flex: 1; padding: 16px; border-radius: var(--radius-xl); font-weight: 700; border: none; cursor: pointer; color: white; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
 
         #answer-container { min-height: 150px; width: 100%; margin: 20px 0; position: relative; }
@@ -365,10 +367,10 @@ const App = {
     
     deckTimer: null,
     isLongPress: false,
-    audioElement: null,
+    currentAudio: null,
+    ttsTimeout: null,
 
     init: function() {
-        // 构建高速查询索引
         for (let i = 0; i < this.state.masterData.length; i++) {
             this.state.masterMap.set(this.state.masterData[i].id, this.state.masterData[i]);
         }
@@ -380,7 +382,6 @@ const App = {
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
         
-        // 绑定遮罩防滑动事件
         const statsOverlay = document.getElementById('stats-overlay');
         statsOverlay.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
         statsOverlay.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
@@ -393,8 +394,6 @@ const App = {
             this.switchTab('study');
             this.state.isAnswerStep = false; 
             document.getElementById('reveal-area').classList.remove('show-answer'); 
-            document.getElementById('action-btns').style.opacity = "1"; 
-            document.getElementById('action-btns').style.pointerEvents = "auto"; 
             this.renderCard();
         } else {
             this.clearPracticeState();
@@ -414,18 +413,11 @@ const App = {
         localStorage.removeItem('es_practice_mode');
     },
 
-    initAudio: function() {
-        if (!this.audioElement) {
-            this.audioElement = new Audio();
-        }
-    },
-
     unlockAudio: function() {
         if (this.state.audioUnlocked) return;
-        this.initAudio();
         try { 
-            this.audioElement.src = 'data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'; 
-            this.audioElement.play().catch(()=>{}); 
+            const dummy = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'); 
+            dummy.play().catch(()=>{}); 
         } catch(e) {}
         
         try { 
@@ -437,48 +429,55 @@ const App = {
         this.state.audioUnlocked = true;
     },
 
+    // 修复 1：重写底层发音系统，解决 WebView 发音失效和网络假死
     speakWord: function(word) {
         if (!word) return;
-        this.initAudio();
-        window.speechSynthesis.cancel(); // 提前打断可能的本地发音，防止死锁
+        
+        window.speechSynthesis.cancel();
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio.src = '';
+        }
+        if (this.ttsTimeout) clearTimeout(this.ttsTimeout);
 
         const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&le=es`;
         const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`;
 
-        const playUrl = (url) => {
-            return new Promise((resolve, reject) => {
-                this.audioElement.src = url;
-                this.audioElement.onloadeddata = () => {
-                    this.audioElement.play().then(resolve).catch(reject);
-                };
-                this.audioElement.onerror = reject;
-                
-                // WebView 网络超时容错处理 (1.5秒没加载出来就认为失效，强行走到 catch 降级)
-                setTimeout(() => {
-                    if (this.audioElement.readyState === 0) reject(new Error('timeout'));
-                }, 150);
+        this.currentAudio = new Audio(youdaoUrl);
+        
+        // 尝试有道，失败则降级到谷歌，再失败则降级到手机离线语音
+        this.currentAudio.play().catch(() => {
+            this.currentAudio = new Audio(googleUrl);
+            this.currentAudio.play().catch(() => {
+                this.fallbackTTS(word);
             });
+        });
+
+        // 一旦开始播放，清除超时判定
+        this.currentAudio.onplaying = () => {
+            if (this.ttsTimeout) clearTimeout(this.ttsTimeout);
         };
 
-        // 按优先级降级重试：有道API -> Google API -> 本地引擎
-        playUrl(youdaoUrl)
-            .catch(() => playUrl(googleUrl))
-            .catch(() => this.fallbackTTS(word));
+        // 防卡死：如果 1.5 秒后毫无动静（网络假死），强行触发离线发音
+        this.ttsTimeout = setTimeout(() => {
+            if (this.currentAudio && this.currentAudio.paused) {
+                this.currentAudio.src = ''; 
+                this.fallbackTTS(word);
+            }
+        }, 1500);
     },
 
     fallbackTTS: function(word) {
-        window.speechSynthesis.cancel(); // 再次确保安卓TTS缓冲队列清空
+        window.speechSynthesis.cancel(); 
         
-        // setTimeout 给 WebView 一点物理反应时间，提升触发成功率
         setTimeout(() => {
             const msg = new SpeechSynthesisUtterance(word); 
             msg.lang = 'es-ES'; 
-            msg.rate = 0.85; // 安卓自带引擎往往语速偏快，调慢一点更易听清
+            msg.rate = 0.85; 
             
             const voices = window.speechSynthesis.getVoices();
             const esVoices = voices.filter(v => v.lang.toLowerCase().includes('es'));
             if (esVoices.length > 0) {
-                // 优先选取本地高质量发音包
                 const bestVoice = esVoices.find(v => v.name.includes('Google') || v.name.includes('Network') || v.name.includes('Premium'));
                 msg.voice = bestVoice || esVoices[0];
             }
@@ -625,10 +624,21 @@ const App = {
         this.savePracticeState();
         
         this.switchTab('study'); 
+        
+        // 确保一开始的按钮是正常的“认识/不认识”
+        this.state.isAnswerStep = false;
+        document.getElementById('reveal-area').classList.remove('show-answer'); 
+        
         this.renderCard();
     },
 
     renderCard: function() {
+        // 重置按钮栏，供下一题使用
+        document.getElementById('action-btns').innerHTML = `
+            <button class="btn-l" style="background:var(--error)" onclick="App.handleEvaluation(false)">不认识 (K)</button>
+            <button class="btn-l" style="background:var(--success)" onclick="App.handleEvaluation(true)">认识 (J)</button>
+        `;
+
         const item = this.state.currentPracticeList[this.state.currentIndex];
         document.getElementById('q-index').innerText = `#${item.id}`; document.getElementById('q-word').innerText = item.word; document.getElementById('q-pos').innerText = item.pos;
         document.getElementById('studyProgress').innerText = this.state.isReviewMode ? `复习: ${this.state.currentIndex + 1} / ${this.state.currentPracticeList.length}` : `进度: ${this.state.currentIndex + 1} / ${this.state.currentPracticeList.length}`;
@@ -636,6 +646,7 @@ const App = {
         this.speakWord(item.word);
     },
 
+    // 修复 2：交互逻辑重构，答案揭晓后提供“改错”和“双击下一步”的无缝流程
     handleEvaluation: function(isKnown) {
         const item = this.state.currentPracticeList[this.state.currentIndex];
         if (!this.state.isReviewMode) {
@@ -647,10 +658,40 @@ const App = {
             if (!this.state.logs[item.id]) this.state.logs[item.id] = [];
             this.state.logs[item.id].push({ time: Date.now(), res: isKnown, isReview: true }); localStorage.setItem('es_logs', JSON.stringify(this.state.logs));
         }
+        
         document.getElementById('ans-en').innerText = item.en || ''; document.getElementById('ans-cn').innerText = item.cn;
         document.getElementById('reveal-area').classList.add('show-answer');
-        document.getElementById('action-btns').style.opacity = "0.2"; document.getElementById('action-btns').style.pointerEvents = "none";
-        this.state.isAnswerStep = true; document.getElementById('next-overlay').style.display = "block";
+        
+        this.state.isAnswerStep = true; 
+        document.getElementById('next-overlay').style.display = "block";
+
+        // 按钮华丽变身：原地变成改错或者下一步，支持同位置双击！
+        if (isKnown) {
+            document.getElementById('action-btns').innerHTML = `
+                <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">记错了 (标为不认识)</button>
+                <button class="btn-l" style="background:var(--success)" onclick="App.nextCard()">下一个 ➔</button>
+            `;
+        } else {
+            document.getElementById('action-btns').innerHTML = `
+                <button class="btn-l" style="background:var(--error)" onclick="App.nextCard()">下一个 ➔</button>
+                <button class="btn-l" style="background:var(--success); font-size: 1.05rem;" onclick="App.changeAnswer(true)">其实认识</button>
+            `;
+        }
+    },
+
+    // 新增：更改最近一次作答记录的函数
+    changeAnswer: function(newStatus) {
+        const item = this.state.currentPracticeList[this.state.currentIndex];
+        const logArr = this.state.logs[item.id];
+        
+        // 找到刚刚在这个词上生成的最后一条记录并修改其正误状态
+        if (logArr && logArr.length > 0) {
+            logArr[logArr.length - 1].res = newStatus;
+            localStorage.setItem('es_logs', JSON.stringify(this.state.logs));
+        }
+        
+        // 改完后自动进入下一张
+        this.nextCard();
     },
 
     nextCard: function() {
@@ -660,7 +701,6 @@ const App = {
         if (this.state.currentIndex < this.state.currentPracticeList.length) {
             this.savePracticeState(); 
             this.state.isAnswerStep = false; document.getElementById('reveal-area').classList.remove('show-answer');
-            document.getElementById('action-btns').style.opacity = "1"; document.getElementById('action-btns').style.pointerEvents = "auto";
             this.renderCard();
         } else { 
             this.clearPracticeState();
@@ -738,9 +778,12 @@ const App = {
 
     handleKeydown: function(e) {
         if (document.getElementById('tab-study').classList.contains('hidden')) return;
-        if (e.key.toLowerCase() === 'j' && !this.state.isAnswerStep) this.handleEvaluation(true);
-        if (e.key.toLowerCase() === 'k' && !this.state.isAnswerStep) this.handleEvaluation(false);
-        if ((e.key === ' ' || e.key === 'Enter') && this.state.isAnswerStep) this.nextCard();
+        if (!this.state.isAnswerStep) {
+            if (e.key.toLowerCase() === 'j') this.handleEvaluation(true);
+            if (e.key.toLowerCase() === 'k') this.handleEvaluation(false);
+        } else {
+            if (e.key === ' ' || e.key === 'Enter') this.nextCard();
+        }
     },
 
     deckPressStart: function(k) {
@@ -827,10 +870,9 @@ const App = {
         this.savePracticeState();
         
         this.switchTab('study'); 
+        
         this.state.isAnswerStep = false; 
         document.getElementById('reveal-area').classList.remove('show-answer'); 
-        document.getElementById('action-btns').style.opacity = "1"; 
-        document.getElementById('action-btns').style.pointerEvents = "auto"; 
         this.renderCard();
     },
 
