@@ -125,7 +125,6 @@
         .study-box { max-width: 500px; margin: 0 auto; text-align: center; padding-top: 10px;}
         .word-card { background: transparent; padding: 20px 10px; display: flex; flex-direction: column; align-items: center;}
         
-        /* 核心修复：单词置于最顶层，以便在遮罩显示时仍可点击发音 */
         .q-word { 
             font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; color: var(--text-main); margin: 10px 0; 
             letter-spacing: -1px; line-height: 1.1; word-break: break-word; cursor: pointer; transition: transform 0.1s; user-select: none;
@@ -139,7 +138,6 @@
         .progress-container { width: 100%; background: var(--divider); border-radius: var(--radius-pill); height: 6px; margin-bottom: 24px; overflow: hidden; }
         .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.4s; border-radius: var(--radius-pill);}
 
-        /* 核心修复：底部按钮层级设为 5002，高于遮罩的 5000，以便随时点击 */
         .bottom-action-bar { position: fixed; bottom: calc(75px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; display: flex; gap: 12px; padding: 0 15px; box-sizing: border-box; z-index: 5002; transition: opacity 0.3s; }
         .btn-l { flex: 1; padding: 16px; border-radius: var(--radius-xl); font-weight: 700; border: none; cursor: pointer; color: white; font-size: 1.1rem; box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
 
@@ -157,9 +155,7 @@
         
         #next-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5000; display: none; }
         
-        /* 统计页/菜单页专用的全局防滑透明遮罩 */
         #stats-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 500; display: none; touch-action: none; }
-        /* 提升菜单卡片的层级，让它们穿透遮罩露出来可被点击 */
         .menu-container .card { position: relative; z-index: 501; }
         
         @media (max-width: 400px) { td, th { padding: 10px 4px; font-size: 13px; } }
@@ -216,11 +212,15 @@
                     <button class="btn btn-accent" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(true)">乱序挑战</button>
                 </div>
             </div>
-            <div class="table-wrapper">
+            <div class="table-wrapper" style="margin-bottom: 20px;">
                 <table id="previewTable">
                     <thead><tr><th class="col-index">序号</th><th style="width:35%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
                     <tbody id="previewBody"></tbody>
                 </table>
+            </div>
+            <div style="display:flex; gap:10px; width: 100%; margin-bottom: 30px;">
+                <button class="btn btn-study" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(false)">顺序背诵</button>
+                <button class="btn btn-accent" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(true)">乱序挑战</button>
             </div>
         </div>
 
@@ -352,7 +352,7 @@ const Utils = {
 const App = {
     state: {
         masterData: JSON.parse(localStorage.getItem('es_master_data') || '[]'),
-        masterMap: new Map(), // O(1) 底层加速字典，极大加快程序运行速度
+        masterMap: new Map(),
         logs: JSON.parse(localStorage.getItem('es_logs') || '{}'),
         decks: JSON.parse(localStorage.getItem('es_decks') || '{}'),
         currentDataset: localStorage.getItem('es_current_dataset') || '',
@@ -367,8 +367,6 @@ const App = {
     
     deckTimer: null,
     isLongPress: false,
-    currentAudio: null,
-    ttsTimeout: null,
 
     init: function() {
         for (let i = 0; i < this.state.masterData.length; i++) {
@@ -429,60 +427,68 @@ const App = {
         this.state.audioUnlocked = true;
     },
 
-    // 修复 1：重写底层发音系统，解决 WebView 发音失效和网络假死
+    // 回滚到最原生的发音机制，附加 0.5s 防假死强制降级
     speakWord: function(word) {
         if (!word) return;
         
-        window.speechSynthesis.cancel();
-        if (this.currentAudio) {
-            this.currentAudio.pause();
-            this.currentAudio.src = '';
-        }
-        if (this.ttsTimeout) clearTimeout(this.ttsTimeout);
-
-        const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&le=es`;
-        const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`;
-
-        this.currentAudio = new Audio(youdaoUrl);
+        let hasPlayed = false;
         
-        // 尝试有道，失败则降级到谷歌，再失败则降级到手机离线语音
-        this.currentAudio.play().catch(() => {
-            this.currentAudio = new Audio(googleUrl);
-            this.currentAudio.play().catch(() => {
-                this.fallbackTTS(word);
-            });
-        });
-
-        // 一旦开始播放，清除超时判定
-        this.currentAudio.onplaying = () => {
-            if (this.ttsTimeout) clearTimeout(this.ttsTimeout);
-        };
-
-        // 防卡死：如果 1.5 秒后毫无动静（网络假死），强行触发离线发音
-        this.ttsTimeout = setTimeout(() => {
-            if (this.currentAudio && this.currentAudio.paused) {
-                this.currentAudio.src = ''; 
+        // 0.5s 极限超时判定，如果网络接口假死没反应，瞬间降级到离线 TTS
+        const fallbackTimer = setTimeout(() => {
+            if (!hasPlayed) {
+                hasPlayed = true;
                 this.fallbackTTS(word);
             }
-        }, 1500);
+        }, 500);
+
+        try { 
+            const youdaoAudio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&le=es`);
+            youdaoAudio.onplaying = () => { 
+                hasPlayed = true; 
+                clearTimeout(fallbackTimer); 
+            };
+            const playPromise = youdaoAudio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    if (hasPlayed) return; 
+                    const googleAudio = new Audio(`https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`);
+                    googleAudio.onplaying = () => { 
+                        hasPlayed = true; 
+                        clearTimeout(fallbackTimer); 
+                    };
+                    googleAudio.play().catch(err => {
+                        if (!hasPlayed) {
+                            hasPlayed = true;
+                            clearTimeout(fallbackTimer);
+                            this.fallbackTTS(word);
+                        }
+                    });
+                });
+            }
+        } catch (e) {
+            if (!hasPlayed) {
+                hasPlayed = true;
+                clearTimeout(fallbackTimer);
+                this.fallbackTTS(word);
+            }
+        }
     },
 
     fallbackTTS: function(word) {
         window.speechSynthesis.cancel(); 
+        const msg = new SpeechSynthesisUtterance(word); 
+        msg.lang = 'es-ES'; 
+        msg.rate = 0.85; 
         
-        setTimeout(() => {
-            const msg = new SpeechSynthesisUtterance(word); 
-            msg.lang = 'es-ES'; 
-            msg.rate = 0.85; 
-            
-            const voices = window.speechSynthesis.getVoices();
-            const esVoices = voices.filter(v => v.lang.toLowerCase().includes('es'));
-            if (esVoices.length > 0) {
-                const bestVoice = esVoices.find(v => v.name.includes('Google') || v.name.includes('Network') || v.name.includes('Premium'));
-                msg.voice = bestVoice || esVoices[0];
-            }
-            window.speechSynthesis.speak(msg);
-        }, 50);
+        const voices = window.speechSynthesis.getVoices();
+        const esVoices = voices.filter(v => v.lang.toLowerCase().includes('es'));
+        if (esVoices.length > 0) {
+            const bestVoice = esVoices.find(v => v.name.includes('Google') || v.name.includes('Network') || v.name.includes('Premium'));
+            msg.voice = bestVoice || esVoices[0];
+        }
+        
+        window.speechSynthesis.speak(msg);
     },
 
     replayAudio: function() {
@@ -624,20 +630,18 @@ const App = {
         this.savePracticeState();
         
         this.switchTab('study'); 
-        
-        // 确保一开始的按钮是正常的“认识/不认识”
-        this.state.isAnswerStep = false;
-        document.getElementById('reveal-area').classList.remove('show-answer'); 
-        
         this.renderCard();
     },
 
     renderCard: function() {
-        // 重置按钮栏，供下一题使用
+        // 重置按钮，恢复成最初的“不认识”和“认识”
         document.getElementById('action-btns').innerHTML = `
             <button class="btn-l" style="background:var(--error)" onclick="App.handleEvaluation(false)">不认识 (K)</button>
             <button class="btn-l" style="background:var(--success)" onclick="App.handleEvaluation(true)">认识 (J)</button>
         `;
+
+        this.state.isAnswerStep = false;
+        document.getElementById('reveal-area').classList.remove('show-answer'); 
 
         const item = this.state.currentPracticeList[this.state.currentIndex];
         document.getElementById('q-index').innerText = `#${item.id}`; document.getElementById('q-word').innerText = item.word; document.getElementById('q-pos').innerText = item.pos;
@@ -646,7 +650,6 @@ const App = {
         this.speakWord(item.word);
     },
 
-    // 修复 2：交互逻辑重构，答案揭晓后提供“改错”和“双击下一步”的无缝流程
     handleEvaluation: function(isKnown) {
         const item = this.state.currentPracticeList[this.state.currentIndex];
         if (!this.state.isReviewMode) {
@@ -665,32 +668,30 @@ const App = {
         this.state.isAnswerStep = true; 
         document.getElementById('next-overlay').style.display = "block";
 
-        // 按钮华丽变身：原地变成改错或者下一步，支持同位置双击！
+        // 按钮华丽变身：如果想改错，反方向点一下；如果确定，同位置再点一下进入下一题
         if (isKnown) {
             document.getElementById('action-btns').innerHTML = `
-                <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">记错了 (标为不认识)</button>
+                <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">不认识</button>
                 <button class="btn-l" style="background:var(--success)" onclick="App.nextCard()">下一个 ➔</button>
             `;
         } else {
             document.getElementById('action-btns').innerHTML = `
                 <button class="btn-l" style="background:var(--error)" onclick="App.nextCard()">下一个 ➔</button>
-                <button class="btn-l" style="background:var(--success); font-size: 1.05rem;" onclick="App.changeAnswer(true)">其实认识</button>
+                <button class="btn-l" style="background:var(--success); font-size: 1.05rem;" onclick="App.changeAnswer(true)">认识</button>
             `;
         }
     },
 
-    // 新增：更改最近一次作答记录的函数
+    // 动态修改刚刚生成的最后一条作答记录
     changeAnswer: function(newStatus) {
         const item = this.state.currentPracticeList[this.state.currentIndex];
         const logArr = this.state.logs[item.id];
         
-        // 找到刚刚在这个词上生成的最后一条记录并修改其正误状态
         if (logArr && logArr.length > 0) {
             logArr[logArr.length - 1].res = newStatus;
             localStorage.setItem('es_logs', JSON.stringify(this.state.logs));
         }
         
-        // 改完后自动进入下一张
         this.nextCard();
     },
 
@@ -700,7 +701,6 @@ const App = {
         
         if (this.state.currentIndex < this.state.currentPracticeList.length) {
             this.savePracticeState(); 
-            this.state.isAnswerStep = false; document.getElementById('reveal-area').classList.remove('show-answer');
             this.renderCard();
         } else { 
             this.clearPracticeState();
@@ -765,7 +765,6 @@ const App = {
         const activeBtn = document.getElementById('nav-' + activeId); 
         if (activeBtn) activeBtn.classList.add('nav-tab-active'); 
 
-        // 控制透明遮罩的显示与隐藏，实现物理防滑
         if (id === 'stats' || id === 'daily-menu') {
             document.getElementById('stats-overlay').style.display = 'block';
         } else {
@@ -870,9 +869,6 @@ const App = {
         this.savePracticeState();
         
         this.switchTab('study'); 
-        
-        this.state.isAnswerStep = false; 
-        document.getElementById('reveal-area').classList.remove('show-answer'); 
         this.renderCard();
     },
 
