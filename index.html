@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.2</title>
+    <title>西语背词助手 v2.3</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -362,7 +362,6 @@ const App = {
         currentDataset: localStorage.getItem('es_current_dataset') || '',
         currentDeck: null, 
         
-        // 新增：持久化保存用户在牌组里选中的“复习列表”
         previewList: JSON.parse(localStorage.getItem('es_preview_list') || '[]'),
         
         currentPracticeList: JSON.parse(localStorage.getItem('es_practice_list') || '[]'),
@@ -384,14 +383,12 @@ const App = {
             this.initDatasets(); this.renderWordTableForCurrentDataset(); this.renderDeckShelf(); 
         }
         
-        // 渲染上次保存的复习列表
         this.renderPreviewTable();
 
         document.getElementById('excelFile').addEventListener('change', (e) => this.handleFileUpload(e));
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
         
-        // 全局滚动监听：实现复习界面顶部和底部按钮的显隐逻辑
         const scrollArea = document.querySelector('.main-scroll-area');
         scrollArea.addEventListener('scroll', () => {
             this.updatePreviewBtnsVisibility();
@@ -416,7 +413,6 @@ const App = {
         }
     },
 
-    // 新增：动态切换【顺序/乱序】按钮显隐的神奇函数
     updatePreviewBtnsVisibility: function() {
         const tabPreview = document.getElementById('tab-preview');
         if (tabPreview.classList.contains('hidden')) return;
@@ -427,10 +423,9 @@ const App = {
 
         if (!topBtns || !bottomBtns) return;
 
-        const threshold = 60; // 容差像素
+        const threshold = 60; 
         const isScrollable = scrollArea.scrollHeight > scrollArea.clientHeight + 10;
 
-        // 如果内容很少，根本不需要滑动，永远只显示最上面的按钮
         if (!isScrollable) {
             topBtns.style.opacity = '1';
             topBtns.style.pointerEvents = 'auto';
@@ -438,23 +433,19 @@ const App = {
             bottomBtns.style.pointerEvents = 'none';
         } else {
             const atTop = scrollArea.scrollTop <= threshold;
-            // 向上取整，兼容高分屏小数误差
             const atBottom = Math.ceil(scrollArea.scrollTop + scrollArea.clientHeight) >= (scrollArea.scrollHeight - threshold);
 
             if (atTop) {
-                // 在最上方：仅展示上方按钮
                 topBtns.style.opacity = '1';
                 topBtns.style.pointerEvents = 'auto';
                 bottomBtns.style.opacity = '0';
                 bottomBtns.style.pointerEvents = 'none';
             } else if (atBottom) {
-                // 在最下方：仅展示下方按钮
                 topBtns.style.opacity = '0';
                 topBtns.style.pointerEvents = 'none';
                 bottomBtns.style.opacity = '1';
                 bottomBtns.style.pointerEvents = 'auto';
             } else {
-                // 滑动在半中间时：上下均巧妙隐藏（不影响你看单词的视线）
                 topBtns.style.opacity = '0';
                 topBtns.style.pointerEvents = 'none';
                 bottomBtns.style.opacity = '0';
@@ -491,7 +482,6 @@ const App = {
         this.state.audioUnlocked = true;
     },
 
-    // 0.5s 极限超时判定，如果网络接口假死没反应，瞬间降级到离线 TTS
     speakWord: function(word) {
         if (!word) return;
         
@@ -619,6 +609,7 @@ const App = {
         this.previewSelected(ids);
     },
 
+    // 核心修复 3：彻底更改防重复随机逻辑，读取真实的历史记录 (logs)
     processRandom: function() {
         const countStr = document.getElementById('randomCountInput').value.trim();
         const count = parseInt(countStr, 10);
@@ -626,33 +617,39 @@ const App = {
 
         const todayStr = Utils.getLocalDateString(Date.now());
         
-        let dailyRandom = JSON.parse(localStorage.getItem('es_daily_random') || '{"date":"", "ids":[]}');
-        if (dailyRandom.date !== todayStr) {
-            dailyRandom = { date: todayStr, ids: [] }; 
+        // 核心修改：不再读取 es_daily_random 假记录。
+        // 直接读取今天真正产生过打卡记录（无论对错）的单词 ID
+        const todayStudiedIds = new Set();
+        for (const id in this.state.logs) {
+            const wordLogs = this.state.logs[id];
+            // 如果这个单词今天有任意记录，加入集合
+            if (wordLogs && wordLogs.some(l => Utils.getLocalDateString(l.time) === todayStr)) {
+                todayStudiedIds.add(id);
+            }
         }
 
         const currentIds = Array.from(document.querySelectorAll('.word-check')).map(el => el.dataset.id);
         if (currentIds.length === 0) return alert("当前列表为空，无法随机抽取！");
 
-        const availableIds = currentIds.filter(id => !dailyRandom.ids.includes(id));
+        // 过滤掉今天已经 *真正被背过* 的单词
+        const availableIds = currentIds.filter(id => !todayStudiedIds.has(id));
+        
         if (availableIds.length === 0) {
-            return alert("今天该列表/牌组内的单词已全部被随机复习过啦！");
+            return alert("今天该列表/牌组内的所有单词你都已经背过啦！");
         }
 
         const actualCount = Math.min(count, availableIds.length);
         if (actualCount < count) {
-            alert(`当前剩余未被抽过的单词只有 ${actualCount} 个，将全部选中。`);
+            alert(`当前剩余未背诵的单词只有 ${actualCount} 个，将全部选中。`);
         }
 
+        // 洗牌算法
         for (let i = availableIds.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [availableIds[i], availableIds[j]] = [availableIds[j], availableIds[i]];
         }
         
         const pickedIds = availableIds.slice(0, actualCount);
-
-        dailyRandom.ids.push(...pickedIds);
-        localStorage.setItem('es_daily_random', JSON.stringify(dailyRandom));
 
         document.querySelectorAll('.word-check').forEach(cb => cb.checked = false);
         pickedIds.forEach(id => {
@@ -663,7 +660,6 @@ const App = {
         this.previewSelected(pickedIds);
     },
 
-    // 渲染固化在复习界面的列表，并立刻计算按钮显隐状态
     renderPreviewTable: function() {
         document.getElementById('preview-count').innerText = this.state.previewList.length;
         document.getElementById('previewBody').innerHTML = this.state.previewList.map(i => `
@@ -674,7 +670,6 @@ const App = {
     previewSelected: function(ids) {
         const currentViewData = this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset);
         
-        // 核心修改：将其直接保存为独立于“背诵进度”之外的“复习列表”，从而实现退出也不丢失
         this.state.previewList = currentViewData.filter(item => ids.includes(item.id));
         localStorage.setItem('es_preview_list', JSON.stringify(this.state.previewList));
         
@@ -705,7 +700,6 @@ const App = {
     },
 
     renderCard: function() {
-        // 重置按钮，恢复成最初的“不认识”和“认识”
         document.getElementById('action-btns').innerHTML = `
             <button class="btn-l" style="background:var(--error)" onclick="App.handleEvaluation(false)">不认识 (K)</button>
             <button class="btn-l" style="background:var(--success)" onclick="App.handleEvaluation(true)">认识 (J)</button>
@@ -739,7 +733,6 @@ const App = {
         this.state.isAnswerStep = true; 
         document.getElementById('next-overlay').style.display = "block";
 
-        // 按钮华丽变身：如果想改错，反方向点一下；如果确定，同位置再点一下进入下一题
         if (isKnown) {
             document.getElementById('action-btns').innerHTML = `
                 <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">记错了(标为错)</button>
@@ -753,7 +746,6 @@ const App = {
         }
     },
 
-    // 动态修改刚刚生成的最后一条作答记录
     changeAnswer: function(newStatus) {
         const item = this.state.currentPracticeList[this.state.currentIndex];
         const logArr = this.state.logs[item.id];
@@ -775,7 +767,6 @@ const App = {
             this.renderCard();
         } else { 
             this.clearPracticeState();
-            // 背诵结束后，回到复习列表
             const fallbackTarget = this.state.isReviewMode ? 'stats' : 'preview';
             this.switchTab(fallbackTarget);
         }
@@ -809,7 +800,7 @@ const App = {
         
         if (bad.length === 0) { 
             title.innerHTML = `今日事，今日毕！ 🎉`; 
-            title.style.color = "#D65A69"; // 柔和的红色
+            title.style.color = "#D65A69"; 
             if(card) { card.style.pointerEvents = "none"; card.style.opacity = "0.8"; }
         } else { 
             title.innerHTML = `今日事<span style="display:block; color:var(--error); font-size:14px; font-weight:600; margin-top:12px;">(${bad.length} 词待消灭)</span>`; 
@@ -937,7 +928,6 @@ const App = {
             const j = Math.floor(Math.random() * (i + 1));
             [list[i], list[j]] = [list[j], list[i]];
         }
-        // 对于错题再来一遍，这里不需要写入固化的 previewList
         this.state.currentPracticeList = list;
         this.state.isReviewMode = true; 
         this.state.currentIndex = 0; 
