@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.1</title>
+    <title>西语背词助手 v2.3</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -155,7 +155,7 @@
         
         #next-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5000; display: none; }
         
-        /* 核心修复：统计页/菜单页专用的全局防滑透明遮罩 */
+        /* 统计页/菜单页专用的全局防滑透明遮罩 */
         #stats-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 500; display: none; touch-action: none; }
         /* 提升菜单卡片的层级，让它们穿透遮罩露出来可被点击 */
         .menu-container .card { position: relative; z-index: 501; }
@@ -365,6 +365,7 @@ const App = {
     
     deckTimer: null,
     isLongPress: false,
+    audioElement: null,
 
     init: function() {
         // 构建高速查询索引
@@ -413,47 +414,78 @@ const App = {
         localStorage.removeItem('es_practice_mode');
     },
 
+    initAudio: function() {
+        if (!this.audioElement) {
+            this.audioElement = new Audio();
+        }
+    },
+
     unlockAudio: function() {
         if (this.state.audioUnlocked) return;
-        try { const dummy = new Audio('data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'); dummy.play().catch(()=>{}); } catch(e) {}
-        try { const msg = new SpeechSynthesisUtterance(''); msg.volume = 0; window.speechSynthesis.speak(msg); } catch(e) {}
+        this.initAudio();
+        try { 
+            this.audioElement.src = 'data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'; 
+            this.audioElement.play().catch(()=>{}); 
+        } catch(e) {}
+        
+        try { 
+            window.speechSynthesis.cancel(); 
+            const msg = new SpeechSynthesisUtterance(''); 
+            msg.volume = 0; 
+            window.speechSynthesis.speak(msg); 
+        } catch(e) {}
         this.state.audioUnlocked = true;
     },
 
     speakWord: function(word) {
-        try { 
-            const youdaoAudio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&le=es`);
-            const playPromise = youdaoAudio.play();
-            
-            if (playPromise !== undefined) {
-                playPromise.catch(e => {
-                    const googleAudio = new Audio(`https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`);
-                    googleAudio.play().catch(err => {
-                        this.fallbackTTS(word);
-                    });
-                });
-            }
-        } catch (e) {
-            this.fallbackTTS(word);
-        }
+        if (!word) return;
+        this.initAudio();
+        window.speechSynthesis.cancel(); // 提前打断可能的本地发音，防止死锁
+
+        const youdaoUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&le=es`;
+        const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=es-ES&q=${encodeURIComponent(word)}`;
+
+        const playUrl = (url) => {
+            return new Promise((resolve, reject) => {
+                this.audioElement.src = url;
+                this.audioElement.onloadeddata = () => {
+                    this.audioElement.play().then(resolve).catch(reject);
+                };
+                this.audioElement.onerror = reject;
+                
+                // WebView 网络超时容错处理 (1.5秒没加载出来就认为失效，强行走到 catch 降级)
+                setTimeout(() => {
+                    if (this.audioElement.readyState === 0) reject(new Error('timeout'));
+                }, 150);
+            });
+        };
+
+        // 按优先级降级重试：有道API -> Google API -> 本地引擎
+        playUrl(youdaoUrl)
+            .catch(() => playUrl(googleUrl))
+            .catch(() => this.fallbackTTS(word));
     },
-    
+
     fallbackTTS: function(word) {
-        window.speechSynthesis.cancel(); 
-        const msg = new SpeechSynthesisUtterance(word); 
-        msg.lang = 'es-ES'; 
-        msg.rate = 0.9; 
+        window.speechSynthesis.cancel(); // 再次确保安卓TTS缓冲队列清空
         
-        const voices = window.speechSynthesis.getVoices();
-        const esVoices = voices.filter(v => v.lang.toLowerCase().includes('es'));
-        if (esVoices.length > 0) {
-            const bestVoice = esVoices.find(v => v.name.includes('Google') || v.name.includes('Network') || v.name.includes('Premium'));
-            msg.voice = bestVoice || esVoices[0];
-        }
-        
-        window.speechSynthesis.speak(msg);
+        // setTimeout 给 WebView 一点物理反应时间，提升触发成功率
+        setTimeout(() => {
+            const msg = new SpeechSynthesisUtterance(word); 
+            msg.lang = 'es-ES'; 
+            msg.rate = 0.85; // 安卓自带引擎往往语速偏快，调慢一点更易听清
+            
+            const voices = window.speechSynthesis.getVoices();
+            const esVoices = voices.filter(v => v.lang.toLowerCase().includes('es'));
+            if (esVoices.length > 0) {
+                // 优先选取本地高质量发音包
+                const bestVoice = esVoices.find(v => v.name.includes('Google') || v.name.includes('Network') || v.name.includes('Premium'));
+                msg.voice = bestVoice || esVoices[0];
+            }
+            window.speechSynthesis.speak(msg);
+        }, 50);
     },
-    
+
     replayAudio: function() {
         if (this.state.currentPracticeList && this.state.currentPracticeList[this.state.currentIndex]) {
             this.speakWord(this.state.currentPracticeList[this.state.currentIndex].word);
@@ -693,7 +725,7 @@ const App = {
         const activeBtn = document.getElementById('nav-' + activeId); 
         if (activeBtn) activeBtn.classList.add('nav-tab-active'); 
 
-        // 控制透明遮罩的显示与隐藏
+        // 控制透明遮罩的显示与隐藏，实现物理防滑
         if (id === 'stats' || id === 'daily-menu') {
             document.getElementById('stats-overlay').style.display = 'block';
         } else {
