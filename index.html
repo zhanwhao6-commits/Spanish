@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.1</title>
+    <title>西语背词助手 v2.2</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -67,7 +67,7 @@
         }
         .nav-tab { 
             flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            height: 100%; color: #000000; font-weight: 700; font-size: 16px; 
+            height: 100%; color: #000000; font-weight: 700; font-size: 15px; 
             cursor: pointer; transition: color 0.2s; background: transparent; border: none; outline: none;
             letter-spacing: 0.5px;
         }
@@ -330,6 +330,7 @@
 
 <div id="bottom-nav">
     <button class="nav-tab nav-tab-active" id="nav-select" onclick="App.switchTab('select')">牌组</button>
+    <button class="nav-tab" id="nav-preview" onclick="App.switchTab('preview')">复习</button>
     <button class="nav-tab" id="nav-study" onclick="App.switchTab('study')">背诵</button>
     <button class="nav-tab" id="nav-stats" onclick="App.switchTab('stats')">统计</button>
 </div>
@@ -358,6 +359,9 @@ const App = {
         currentDataset: localStorage.getItem('es_current_dataset') || '',
         currentDeck: null, 
         
+        // 新增：持久化保存用户在牌组里选中的“复习列表”
+        previewList: JSON.parse(localStorage.getItem('es_preview_list') || '[]'),
+        
         currentPracticeList: JSON.parse(localStorage.getItem('es_practice_list') || '[]'),
         currentIndex: parseInt(localStorage.getItem('es_practice_index') || '0', 10),
         isReviewMode: localStorage.getItem('es_practice_mode') === 'true',
@@ -376,6 +380,10 @@ const App = {
         if (this.state.masterData.length > 0) { 
             this.initDatasets(); this.renderWordTableForCurrentDataset(); this.renderDeckShelf(); 
         }
+        
+        // 渲染上次保存的复习列表
+        this.renderPreviewTable();
+
         document.getElementById('excelFile').addEventListener('change', (e) => this.handleFileUpload(e));
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
@@ -427,13 +435,12 @@ const App = {
         this.state.audioUnlocked = true;
     },
 
-    // 回滚到最原生的发音机制，附加 0.5s 防假死强制降级
+    // 0.5s 极限超时判定，如果网络接口假死没反应，瞬间降级到离线 TTS
     speakWord: function(word) {
         if (!word) return;
         
         let hasPlayed = false;
         
-        // 0.5s 极限超时判定，如果网络接口假死没反应，瞬间降级到离线 TTS
         const fallbackTimer = setTimeout(() => {
             if (!hasPlayed) {
                 hasPlayed = true;
@@ -600,22 +607,29 @@ const App = {
         this.previewSelected(pickedIds);
     },
 
+    // 渲染固化在复习界面的列表
+    renderPreviewTable: function() {
+        document.getElementById('preview-count').innerText = this.state.previewList.length;
+        document.getElementById('previewBody').innerHTML = this.state.previewList.map(i => `
+            <tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td><span class="pos-badge">${Utils.escapeHTML(i.pos)}</span></td><td>${Utils.escapeHTML(i.cn)}</td></tr>`).join('');
+    },
+
     previewSelected: function(ids) {
         const currentViewData = this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset);
-        this.state.currentPracticeList = currentViewData.filter(item => ids.includes(item.id));
         
-        document.getElementById('preview-count').innerText = this.state.currentPracticeList.length;
-        document.getElementById('previewBody').innerHTML = this.state.currentPracticeList.map(i => `
-            <tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td><span class="pos-badge">${Utils.escapeHTML(i.pos)}</span></td><td>${Utils.escapeHTML(i.cn)}</td></tr>`).join('');
-            
+        // 核心修改：将其直接保存为独立于“背诵进度”之外的“复习列表”，从而实现退出也不丢失
+        this.state.previewList = currentViewData.filter(item => ids.includes(item.id));
+        localStorage.setItem('es_preview_list', JSON.stringify(this.state.previewList));
+        
+        this.renderPreviewTable();
         this.switchTab('preview');
     },
 
     startStudyFlow: function(isShuffle) {
         this.unlockAudio(); 
-        if (this.state.currentPracticeList.length === 0) return alert("待背诵列表为空！");
+        if (this.state.previewList.length === 0) return alert("待复习列表为空，请先在牌组界面选词！");
         
-        let list = [...this.state.currentPracticeList]; 
+        let list = [...this.state.previewList]; 
         if (isShuffle) {
             for (let i = list.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -671,13 +685,13 @@ const App = {
         // 按钮华丽变身：如果想改错，反方向点一下；如果确定，同位置再点一下进入下一题
         if (isKnown) {
             document.getElementById('action-btns').innerHTML = `
-                <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">不认识</button>
+                <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">记错了(标为错)</button>
                 <button class="btn-l" style="background:var(--success)" onclick="App.nextCard()">下一个 ➔</button>
             `;
         } else {
             document.getElementById('action-btns').innerHTML = `
                 <button class="btn-l" style="background:var(--error)" onclick="App.nextCard()">下一个 ➔</button>
-                <button class="btn-l" style="background:var(--success); font-size: 1.05rem;" onclick="App.changeAnswer(true)">认识</button>
+                <button class="btn-l" style="background:var(--success); font-size: 1.05rem;" onclick="App.changeAnswer(true)">其实认识</button>
             `;
         }
     },
@@ -704,7 +718,8 @@ const App = {
             this.renderCard();
         } else { 
             this.clearPracticeState();
-            const fallbackTarget = this.state.isReviewMode ? 'stats' : 'select';
+            // 背诵结束后，回到复习列表
+            const fallbackTarget = this.state.isReviewMode ? 'stats' : 'preview';
             this.switchTab(fallbackTarget);
         }
     },
@@ -758,7 +773,6 @@ const App = {
         }
         
         let activeId = id;
-        if (id === 'preview') activeId = 'select';
         if (['mistake-detail', 'daily-menu', 'learning-progress', 'daily-table', 'accumulation-detail', 'data-management'].includes(id)) activeId = 'stats';
         
         document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('nav-tab-active')); 
@@ -862,6 +876,7 @@ const App = {
             const j = Math.floor(Math.random() * (i + 1));
             [list[i], list[j]] = [list[j], list[i]];
         }
+        // 对于错题再来一遍，这里不需要写入固化的 previewList
         this.state.currentPracticeList = list;
         this.state.isReviewMode = true; 
         this.state.currentIndex = 0; 
