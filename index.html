@@ -207,18 +207,21 @@
         <div id="tab-preview" class="section hidden" style="padding-top: 10px;">
             <div style="display: flex; flex-direction: column; align-items: stretch; gap: 15px; margin-bottom: 20px;">
                 <h2 style="text-align: center; margin: 0;">本次目标 (<span id="preview-count" style="color:var(--primary)">0</span> 词)</h2>
-                <div style="display:flex; gap:10px; width: 100%;">
+                
+                <div id="top-preview-btns" style="display:flex; gap:10px; width: 100%; transition: opacity 0.3s; opacity: 1;">
                     <button class="btn btn-study" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(false)">顺序背诵</button>
                     <button class="btn btn-accent" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(true)">乱序挑战</button>
                 </div>
             </div>
+            
             <div class="table-wrapper" style="margin-bottom: 20px;">
                 <table id="previewTable">
                     <thead><tr><th class="col-index">序号</th><th style="width:35%">单词</th><th style="width:15%">词性</th><th>中文</th></tr></thead>
                     <tbody id="previewBody"></tbody>
                 </table>
             </div>
-            <div style="display:flex; gap:10px; width: 100%; margin-bottom: 30px;">
+            
+            <div id="bottom-preview-btns" style="display:flex; gap:10px; width: 100%; margin-bottom: 30px; transition: opacity 0.3s; opacity: 0; pointer-events: none;">
                 <button class="btn btn-study" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(false)">顺序背诵</button>
                 <button class="btn btn-accent" style="flex:1; padding: 14px; font-size: 16px;" onclick="App.startStudyFlow(true)">乱序挑战</button>
             </div>
@@ -388,6 +391,12 @@ const App = {
         window.onkeydown = (e) => this.handleKeydown(e);
         this.updateMistakesUI(); 
         
+        // 全局滚动监听：实现复习界面顶部和底部按钮的显隐逻辑
+        const scrollArea = document.querySelector('.main-scroll-area');
+        scrollArea.addEventListener('scroll', () => {
+            this.updatePreviewBtnsVisibility();
+        });
+        
         const statsOverlay = document.getElementById('stats-overlay');
         statsOverlay.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
         statsOverlay.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
@@ -404,6 +413,53 @@ const App = {
         } else {
             this.clearPracticeState();
             this.switchTab('select');
+        }
+    },
+
+    // 新增：动态切换【顺序/乱序】按钮显隐的神奇函数
+    updatePreviewBtnsVisibility: function() {
+        const tabPreview = document.getElementById('tab-preview');
+        if (tabPreview.classList.contains('hidden')) return;
+
+        const scrollArea = document.querySelector('.main-scroll-area');
+        const topBtns = document.getElementById('top-preview-btns');
+        const bottomBtns = document.getElementById('bottom-preview-btns');
+
+        if (!topBtns || !bottomBtns) return;
+
+        const threshold = 60; // 容差像素
+        const isScrollable = scrollArea.scrollHeight > scrollArea.clientHeight + 10;
+
+        // 如果内容很少，根本不需要滑动，永远只显示最上面的按钮
+        if (!isScrollable) {
+            topBtns.style.opacity = '1';
+            topBtns.style.pointerEvents = 'auto';
+            bottomBtns.style.opacity = '0';
+            bottomBtns.style.pointerEvents = 'none';
+        } else {
+            const atTop = scrollArea.scrollTop <= threshold;
+            // 向上取整，兼容高分屏小数误差
+            const atBottom = Math.ceil(scrollArea.scrollTop + scrollArea.clientHeight) >= (scrollArea.scrollHeight - threshold);
+
+            if (atTop) {
+                // 在最上方：仅展示上方按钮
+                topBtns.style.opacity = '1';
+                topBtns.style.pointerEvents = 'auto';
+                bottomBtns.style.opacity = '0';
+                bottomBtns.style.pointerEvents = 'none';
+            } else if (atBottom) {
+                // 在最下方：仅展示下方按钮
+                topBtns.style.opacity = '0';
+                topBtns.style.pointerEvents = 'none';
+                bottomBtns.style.opacity = '1';
+                bottomBtns.style.pointerEvents = 'auto';
+            } else {
+                // 滑动在半中间时：上下均巧妙隐藏（不影响你看单词的视线）
+                topBtns.style.opacity = '0';
+                topBtns.style.pointerEvents = 'none';
+                bottomBtns.style.opacity = '0';
+                bottomBtns.style.pointerEvents = 'none';
+            }
         }
     },
 
@@ -607,11 +663,12 @@ const App = {
         this.previewSelected(pickedIds);
     },
 
-    // 渲染固化在复习界面的列表
+    // 渲染固化在复习界面的列表，并立刻计算按钮显隐状态
     renderPreviewTable: function() {
         document.getElementById('preview-count').innerText = this.state.previewList.length;
         document.getElementById('previewBody').innerHTML = this.state.previewList.map(i => `
             <tr><td class="col-index">${Utils.escapeHTML(i.id)}</td><td><strong>${Utils.escapeHTML(i.word)}</strong></td><td><span class="pos-badge">${Utils.escapeHTML(i.pos)}</span></td><td>${Utils.escapeHTML(i.cn)}</td></tr>`).join('');
+        setTimeout(() => this.updatePreviewBtnsVisibility(), 50);
     },
 
     previewSelected: function(ids) {
@@ -787,6 +844,10 @@ const App = {
 
         if(id === 'stats') this.updateMistakesUI();
         document.querySelector('.main-scroll-area').scrollTop = 0; 
+
+        if (id === 'preview') {
+            setTimeout(() => this.updatePreviewBtnsVisibility(), 50);
+        }
     },
 
     handleKeydown: function(e) {
