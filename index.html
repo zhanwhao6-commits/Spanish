@@ -735,13 +735,13 @@ const App = {
 
         if (isKnown) {
             document.getElementById('action-btns').innerHTML = `
-                <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">记错了(标为错)</button>
+                <button class="btn-l" style="background:var(--error); font-size: 1.05rem;" onclick="App.changeAnswer(false)">忘记了</button>
                 <button class="btn-l" style="background:var(--success)" onclick="App.nextCard()">下一个 ➔</button>
             `;
         } else {
             document.getElementById('action-btns').innerHTML = `
                 <button class="btn-l" style="background:var(--error)" onclick="App.nextCard()">下一个 ➔</button>
-                <button class="btn-l" style="background:var(--success); font-size: 1.05rem;" onclick="App.changeAnswer(true)">其实认识</button>
+                <button class="btn-l" style="background:var(--success); font-size: 1.05rem;" onclick="App.changeAnswer(true)">还记得</button>
             `;
         }
     },
@@ -1095,3 +1095,4 @@ window.onload = () => App.init();
 </script>
 </body>
 </html>
+
