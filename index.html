@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#F8FAFC">
-    <title>西语背词助手 v2.3</title>
+    <title>西语背词助手 v2.4 (凌晨3点版)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -344,12 +344,22 @@ const Utils = {
         if (!str) return '';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     },
+    // 核心修改：调整逻辑日期的字符串判定，延迟3小时
     getLocalDateString: function(ts) {
-        const d = new Date(ts);
+        // 减去 3 小时 (3 * 60 * 60 * 1000 = 10800000 毫秒)
+        // 这样一来，凌晨 00:00 到 02:59 发生的操作，在逻辑上都会被算入前一天
+        const logicalTs = ts - 10800000;
+        const d = new Date(logicalTs);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     },
+    // 核心修改：调整每日统计起点的判定，保证图表对齐
     getStartOfDay: function(ts) {
-        const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime();
+        // 计算逻辑日期的午夜起点，然后再加上 3 小时
+        // 返回的真实时间戳即为：该逻辑日期的凌晨 3 点整
+        const logicalTs = ts - 10800000;
+        const d = new Date(logicalTs); 
+        d.setHours(0, 0, 0, 0); 
+        return d.getTime() + 10800000; 
     }
 };
 
@@ -484,7 +494,6 @@ const App = {
 
     speakWord: function(word) {
         if (!word) return;
-        
         let hasPlayed = false;
         
         const fallbackTimer = setTimeout(() => {
@@ -609,7 +618,7 @@ const App = {
         this.previewSelected(ids);
     },
 
-    // 核心修复 3：彻底更改防重复随机逻辑，读取真实的历史记录 (logs)
+    // 防重复随机逻辑
     processRandom: function() {
         const countStr = document.getElementById('randomCountInput').value.trim();
         const count = parseInt(countStr, 10);
@@ -617,8 +626,6 @@ const App = {
 
         const todayStr = Utils.getLocalDateString(Date.now());
         
-        // 核心修改：不再读取 es_daily_random 假记录。
-        // 直接读取今天真正产生过打卡记录（无论对错）的单词 ID
         const todayStudiedIds = new Set();
         for (const id in this.state.logs) {
             const wordLogs = this.state.logs[id];
@@ -631,9 +638,7 @@ const App = {
         const currentIds = Array.from(document.querySelectorAll('.word-check')).map(el => el.dataset.id);
         if (currentIds.length === 0) return alert("当前列表为空，无法随机抽取！");
 
-        // 过滤掉今天已经 *真正被背过* 的单词
         const availableIds = currentIds.filter(id => !todayStudiedIds.has(id));
-        
         if (availableIds.length === 0) {
             return alert("今天该列表/牌组内的所有单词你都已经背过啦！");
         }
@@ -669,7 +674,6 @@ const App = {
 
     previewSelected: function(ids) {
         const currentViewData = this.state.masterData.filter(i => (i.source || '未命名') === this.state.currentDataset);
-        
         this.state.previewList = currentViewData.filter(item => ids.includes(item.id));
         localStorage.setItem('es_preview_list', JSON.stringify(this.state.previewList));
         
@@ -1095,4 +1099,3 @@ window.onload = () => App.init();
 </script>
 </body>
 </html>
-
